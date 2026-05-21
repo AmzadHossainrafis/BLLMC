@@ -1,0 +1,6 @@
+torch >=2.0
+tiktoken
+gdown
+ruff
+tqdm
+-e . 

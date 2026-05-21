@@ -1,0 +1,27 @@
+
+##### " This project is under MIT licence :P , feel free to use it " 
+##### " Don't forget to give a star " 
+##### " Looking for a collaboration ?? ping me " 
+
+
+## Bangla LLM collection 
+
+
+### Model list 
+    1. GPT2 architecture
+    2. LLaMA architecture
+
+### Future models 
+    1. gemma 3 
+    2. gemman 4 
+    3. qwen3 
+
+### how to use it 
+    content is not available yet ... 
+    please wait for the next update ...
+
+
+### Contributors 
+@amzadhossainrafis
+
+   

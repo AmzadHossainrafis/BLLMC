@@ -1,0 +1,55 @@
+# config/config.yaml
+
+data:
+  dataset_path: "dataset/bangla_news.txt"
+  train_data_path: "dataset/bangla_train.txt"
+  val_data_path: "dataset/bangla_val.txt"
+  test_data_path: "dataset/bangla_test.txt"
+  batch_size: 4
+  max_length: 256
+  stride: 4
+
+
+model:
+  architecture: "gpt2"   # or "gpt2"
+  vocab_size: 50257
+  emb_dim: 768
+  n_heads: 12
+  n_kv_heads: 4           # for GQA
+  n_layers: 12
+  context_length: 256
+  drop_rate: 0.1
+  rope_base: 500000
+  rope_freq_config:
+    low_freq_factor: 1.0
+    high_freq_factor: 4.0
+    original_context_length: 8192
+
+training:
+  batch_size: 1
+  learning_rate: 5.0e-4
+  weight_decay: 0.1
+  num_epochs: 10
+  warmup_steps: 100
+  checkpoint_dir: "artifacts/model_ckpt"
+  eval_iters: 10
+  eval_freq: 1000 
+  start_context: '"These fifteen years you have been in a dream;'
+  optimizer: "AdamW"
+  gradient_clip: 1.0
+  compile: True
+  shuffle: True
+  num_workers: 0
+  drop_last: True 
+  stride: 4 
+  context_length: 256
+  max_length: 10
+  stride: 6
+
+
+
+
+logging:
+  log_dir: "logs"
+  log_interval: 100
+
