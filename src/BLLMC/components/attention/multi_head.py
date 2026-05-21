@@ -6,9 +6,14 @@ email : [EMAIL_ADDRESS]
 change log :
     17-5-2026 : start
     17-5-2026 : implement multi head attention
+    21-5-2026 : make it memory optimized
+    21-5-2026 : implement k cache and v cache
 
 to do :
     1. Implement test cases
+    2. Implement multi head group
+    3. Implement Multi Query Attention
+    4. Implement FlashAttention
 
 """
 
@@ -65,17 +70,18 @@ class MultiHeadAttention(nn.Module):
             ).bool(),
         )
 
+        # k cache
+        self.register_buffer("k_cache", None, persistent=False)
+        self.register_buffer("v_cache", None, persistent=False)
+        self.ptr_current_pos = 0
 
-        #k cache 
-        self.register_buffer("k_cache", None , persistent=False)
-        self.register_buffer("v_cache", None , persistent=False)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, use_cache: bool = False) -> torch.Tensor:
         """
         Computes the multi-head attention for the given input sequence.
 
         Args:
             x (torch.Tensor): Input tensor of shape (Batch, num_tokens, emb_dim).
+            use_cache (bool): If True, cache keys and values for autoregressive generation.
 
         Returns:
             torch.Tensor: Output tensor of shape (Batch, num_tokens, emb_dim) after attention
@@ -83,29 +89,57 @@ class MultiHeadAttention(nn.Module):
         """
         Batch, num_tokens, d_in = x.shape
 
-        # Q K V projection
-        q = self.wq(x)  # (B, T, d_out)
-        k = self.wk(x)  # (B, T, d_out)
-        v = self.wv(x)  # (B, T, d_out)
+        k = self.wk(x)
+        q = self.wq(x)
+        v = self.wv(x)
 
         # Split into multiple heads
         q = q.view(Batch, num_tokens, self.n_head, self.head_dim)
         k = k.view(Batch, num_tokens, self.n_head, self.head_dim)
         v = v.view(Batch, num_tokens, self.n_head, self.head_dim)
+        # kv cache implementaion
+        if use_cache:
+            if self.k_cache is None:
+                self.k_cache, self.v_cache = k, v
+            else:
+                self.k_cache = torch.cat([self.k_cache, k], dim=1)
+                self.v_cache = torch.cat([self.v_cache, v], dim=1)
+            keys, values = self.k_cache, self.v_cache
+        else:
+            keys, values = k, v
 
         # transpose into (B,n_head,T,head_dim)
         q = q.transpose(1, 2)
-        k = k.transpose(1, 2)
-        v = v.transpose(1, 2)
+        keys = keys.transpose(1, 2)
+        values = values.transpose(1, 2)
 
-        attention_scores = q @ k.transpose(2, 3)
+        attention_scores = q @ keys.transpose(2, 3)
 
-        mask = self.mask[:num_tokens, :num_tokens]
+        num_torkens_Q = q.shape[-2]
+        num_torkens_K = keys.shape[-2]
+
+        if use_cache:
+            mask = self.mask[
+                self.ptr_current_pos : self.ptr_current_pos + num_torkens_Q,
+                :num_torkens_K,
+            ]
+            # mask = mask | self.mask[:num_torkens_Q, :num_torkens_K] ## This is for the first token where we need to add 1 row and 1 colunm
+            self.ptr_current_pos += num_torkens_Q
+
+        else:
+            mask = self.mask[:num_torkens_Q, :num_torkens_K]
+
         attention_scores = attention_scores.masked_fill_(mask, -torch.inf)
-        attention_weights = torch.softmax(attention_scores / k.shape[-1] ** 0.5, dim=-1)
+        attention_weights = torch.softmax(
+            attention_scores / keys.shape[-1] ** 0.5, dim=-1
+        )
         attention_weights = self.dropout(attention_weights)
-        context = (attention_weights @ v).transpose(1, 2).contiguous()
+        context = (attention_weights @ values).transpose(1, 2).contiguous()
         context = context.view(Batch, num_tokens, self.d_out)
 
         return self.out_proj(context)
 
+    def clear_cache(self):
+        self.k_cache = None
+        self.v_cache = None
+        self.ptr_current_pos = 0
