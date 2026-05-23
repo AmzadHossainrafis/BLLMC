@@ -32,17 +32,17 @@ class SlidingWindowAttention(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        assert d_out % num_heads == 0, "d_out must be divisible by num_heads"
+        assert config.emb_dim % config.n_heads == 0, "d_out must be divisible by num_heads"
 
-        self.d_out = d_out
-        self.num_heads = num_heads
-        self.head_dim = d_out // num_heads
-        self.dropout_p = dropout
-        self.sliding_window_size = sliding_window_size
+        self.d_out = config.emb_dim
+        self.num_heads = config.n_heads
+        self.head_dim = config.emb_dim // config.n_heads
+        self.dropout_p = config.drop_rate
+        self.sliding_window_size = config.sliding_window_size
 
         # Fused QKV: single matmul for all three projections
-        self.W_qkv = nn.Linear(d_in, 3 * d_out, bias=qkv_bias)
-        self.out_proj = nn.Linear(d_out, d_out)
+        self.W_qkv = nn.Linear(config.emb_dim, 3 * config.emb_dim, bias=False)
+        self.out_proj = nn.Linear(config.emb_dim, config.emb_dim, bias=False)
 
         # KV cache for autoregressive generation
         self.register_buffer("cache_k", None, persistent=False)

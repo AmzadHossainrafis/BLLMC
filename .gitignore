@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+
+# Virtual environments
+.venv/
+.conda/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Training artifacts
+*.pt
+*.pth
+*.ckpt
+wandb/
+runs/
+logs/
+
+# Data
+data/
+*.csv
+*.parquet
+*.arrow
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+.env
