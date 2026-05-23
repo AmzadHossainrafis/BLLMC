@@ -120,36 +120,3 @@ class MultiHeadAttentionWithSWA(nn.Module):
         return context_vec
 
 
-###
-if __name__ == "__main__":
-    d_in = 128
-    d_out = 128
-    num_heads = 4
-    sliding_window_size = 10
-    mha = MultiHeadAttentionWithSWA(
-        d_in,
-        d_out,
-        dropout=0.0,
-        num_heads=num_heads,
-        sliding_window_size=sliding_window_size,
-    )
-
-    # 1. First forward pass (generates cache)
-    for i in range(3):
-        print(f"Block {i+1}")
-
-        seq_len = 128
-        x1 = torch.randn(2, seq_len, d_in)
-        out1 = mha(x1, use_cache=True)
-        print("Block 1 output:", out1.shape)
-
-        # 2. Next forward pass using KV cache (longer effective context)
-        # Now model can use cache from first pass
-        x2 = torch.randn(2, 128, d_in)
-        out2 = mha(x2, use_cache=True)  # pass True to enable KV cache
-        print("Block 2 output:", out2.shape)
-
-        # 3. Run without caching - window will reset
-        x3 = torch.randn(2, 128, d_in)
-        out3 = mha(x3, use_cache=True)  # window resets, no cache used
-        print("Block 3 output (no cache):", out3.shape)
