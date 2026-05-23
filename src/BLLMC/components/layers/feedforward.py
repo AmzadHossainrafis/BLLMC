@@ -2,7 +2,6 @@ from BLLMC.components.layers.activations import GELU
 import torch.nn as nn
 
 
-
 class FeedForward(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -17,4 +16,3 @@ class FeedForward(nn.Module):
 
     def __str__(self):
         return f"FeedForward({self.layers})"
-

@@ -55,4 +55,3 @@ class RMSNorm(nn.Module):
     def forward(self, x):
         denom = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.eps)
         return (x / denom) * self.weight
-

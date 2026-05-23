@@ -18,6 +18,7 @@ change log :
 
 import yaml
 import torch
+
 # CONFIG_PATH = pathlib.Path(__file__).parent / "config" / "config.yaml"
 
 
@@ -50,4 +51,3 @@ def read_config(config_path):
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
     return config
-

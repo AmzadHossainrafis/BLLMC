@@ -1,7 +1,7 @@
 """
 licence : mit
 author : amzad hossain rafi
-email : [EMAIL_ADDRESS]
+email : amzad.rafi@northsouth.edu
 
 change log :
     17-5-2026 : start

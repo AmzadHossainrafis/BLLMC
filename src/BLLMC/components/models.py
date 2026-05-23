@@ -38,8 +38,6 @@ class GPT2Model(nn.Module):
         x = self.ln_f(x)
         return self.lm_head(x)
 
-    
-
 
 class LlamaModel(nn.Module):
     def __init__(self, config: GPT_Config):

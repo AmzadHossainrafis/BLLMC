@@ -53,4 +53,4 @@ class GELU_taylor(nn.Module):
 
 
 def GELU():
-    return nn.GELU(approximate='tanh')
+    return nn.GELU(approximate="tanh")
