@@ -32,7 +32,9 @@ class SlidingWindowAttention(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        assert config.emb_dim % config.n_heads == 0, "d_out must be divisible by num_heads"
+        assert (
+            config.emb_dim % config.n_heads == 0
+        ), "d_out must be divisible by num_heads"
 
         self.d_out = config.emb_dim
         self.num_heads = config.n_heads
@@ -112,11 +114,9 @@ class SlidingWindowAttention(nn.Module):
     def forward(self, x, use_cache=False):
         b, T, _ = x.shape
 
-        # ── 1. Fused QKV projection ──
         qkv = self.W_qkv(x).view(b, T, 3, self.num_heads, self.head_dim)
-        q, k, v = qkv.unbind(dim=2)  # each: (b, T, H, D)
+        q, k, v = qkv.unbind(dim=2)
 
-        # ── 2. KV cache (operates on b, T, H, D — before transpose) ──
         if use_cache:
             k, v, k_start = self._update_cache(k, v, T)
             q_start = self.ptr_current_pos
