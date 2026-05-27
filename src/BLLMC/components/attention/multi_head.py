@@ -11,9 +11,7 @@ change log :
 
 to do :
     1. Implement test cases
-    2. Implement multi head group
-    3. Implement Multi Query Attention
-    4. Implement FlashAttention
+
 
 """
 
