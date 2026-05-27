@@ -15,6 +15,12 @@ class GPT_Config:
     drop_rate: float = 0.1
     rope_base: float = 100_000.0
 
+    # ── MoE (Mixture of Experts) ──
+    num_experts: int = 8
+    num_experts_per_tok: int = 2
+    moe_hidden_dim: int = 768
+    dtype: object = None  # defaults to torch.float32 in __post_init__
+
     # ── Data ──
     dataset_path: str = "/home/rafi/Desktop/BLLMC/dataset/demo_text.txt"
     train_data_path: str = "dataset/english_data.txt"
@@ -46,6 +52,11 @@ class GPT_Config:
     gen_indx: int = 5
 
     def __post_init__(self):
+        import torch
+
+        if self.dtype is None:
+            self.dtype = torch.float32
+
         assert (
             self.emb_dim % self.n_heads == 0
         ), f"emb_dim ({self.emb_dim}) must be divisible by n_heads ({self.n_heads})"
