@@ -16,7 +16,9 @@ to do :
 import torch
 
 
-def compute_rope_params(head_dim, theta_base=10_000, context_length=4096, dtype=torch.float32):
+def compute_rope_params(
+    head_dim, theta_base=10_000, context_length=4096, dtype=torch.float32
+):
     """
     Precompute the cosine and sine tables for Rotary Position Embeddings (RoPE).
 
@@ -48,13 +50,21 @@ def compute_rope_params(head_dim, theta_base=10_000, context_length=4096, dtype=
 
     # Compute the inverse frequencies
     # θ_i = 1 / (theta_base^(2i / head_dim)) for i in [0, head_dim/2)
-    inv_freq = 1.0 / (theta_base ** (torch.arange(0, head_dim, 2, dtype=dtype)[: (head_dim // 2)].float() / head_dim))
+    inv_freq = 1.0 / (
+        theta_base
+        ** (
+            torch.arange(0, head_dim, 2, dtype=dtype)[: (head_dim // 2)].float()
+            / head_dim
+        )
+    )
 
     # Generate position indices
     positions = torch.arange(context_length, dtype=dtype)
 
     # Compute the angles: outer product of positions and inverse frequencies
-    angles = positions.unsqueeze(1) * inv_freq.unsqueeze(0)  # Shape: (context_length, head_dim // 2)
+    angles = positions.unsqueeze(1) * inv_freq.unsqueeze(
+        0
+    )  # Shape: (context_length, head_dim // 2)
 
     # Duplicate angles to match head_dim (each pair of dims shares the same angle)
     angles = torch.cat([angles, angles], dim=1)  # Shape: (context_length, head_dim)
@@ -100,12 +110,12 @@ def apply_rope(x, cos, sin, offset=0):
 
     # Split x into first half and second half
     x1 = x[..., : head_dim // 2]  # First half
-    x2 = x[..., head_dim // 2:]   # Second half
+    x2 = x[..., head_dim // 2 :]  # Second half
 
     # Slice and broadcast cos/sin for the current sequence positions
     # (context_length, head_dim) -> (1, 1, seq_len, head_dim)
-    cos = cos[offset:offset + seq_len, :].unsqueeze(0).unsqueeze(0)
-    sin = sin[offset:offset + seq_len, :].unsqueeze(0).unsqueeze(0)
+    cos = cos[offset : offset + seq_len, :].unsqueeze(0).unsqueeze(0)
+    sin = sin[offset : offset + seq_len, :].unsqueeze(0).unsqueeze(0)
 
     # Apply the rotary transformation:
     #   [x1', x2'] = [x1, x2] * cos + [-x2, x1] * sin
