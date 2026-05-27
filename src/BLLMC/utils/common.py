@@ -17,7 +17,6 @@ change log :
 """
 
 import yaml
-import torch
 
 # CONFIG_PATH = pathlib.Path(__file__).parent / "config" / "config.yaml"
 
