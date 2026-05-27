@@ -168,7 +168,11 @@ class LLMTrainer(Trainer):
                     )
 
                 if batch_idx % self.config.gen_indx == 0:
-                    prompt = "That our garments, being,"
+                    prompt = (
+                        self.config.start_context
+                        if self.config.start_context
+                        else "Garments are"
+                    )
                     tokenizer = tiktoken.get_encoding("gpt2")
                     start_tokens = tokenizer.encode(
                         prompt, allowed_special={"<|endoftext|>"}
@@ -177,7 +181,9 @@ class LLMTrainer(Trainer):
                         start_tokens, dtype=torch.long, device=self.device
                     )[None, :]
                     # generate output and decode it
-                    result = self.generate(x, max_new_tokens=50, context_size=1024)
+                    result = self.generate(
+                        x, max_new_tokens=50, context_size=self.config.context_length
+                    )
                     print(tokenizer.decode(result[0].tolist()))
 
             self._save_checkpoint(epoch, loss)
@@ -196,25 +202,8 @@ class LLMTrainer(Trainer):
         self.model.train()
         return idx
 
+    
 
-if __name__ == "__main__":
-    from BLLMC.components.config import GPT_Config
-    from BLLMC.components.models import GPT2Model
-    from BLLMC.data.loader import create_dataloader
-    import tiktoken
 
-    config = GPT_Config(compile=False)  # compile=False for CPU training
-    model = GPT2Model(config)
-    # read  traing data
-    with open(config.train_data_path, "r", encoding="utf-8") as f:
-        train_data = f.read()
 
-    # read val data
-    with open(config.val_data_path, "r", encoding="utf-8") as f:
-        val_data = f.read()
 
-    train_loader = create_dataloader(train_data, "gpt2", config)
-    val_loader = create_dataloader(val_data, "gpt2", config)
-
-    trainer = LLMTrainer(model, train_loader, val_loader, config)
-    trainer.train()
