@@ -26,14 +26,43 @@ class MoEFeedForward(nn.Module):
         self.num_experts_per_tok = config.num_experts_per_tok
         self.num_experts = config.num_experts
         self.emb_dim = config.emb_dim
-        self.gate = nn.Linear(config.emb_dim, config.num_experts, bias=False, dtype=config.dtype)
+        self.gate = nn.Linear(
+            config.emb_dim, config.num_experts, bias=False, dtype=config.dtype
+        )
 
-        self.fc1 = nn.ModuleList([nn.Linear(config.emb_dim, config.moe_hidden_dim, bias=False, dtype=config.dtype)
-                                  for _ in range(config.num_experts)])
-        self.fc2 = nn.ModuleList([nn.Linear(config.emb_dim, config.moe_hidden_dim, bias=False, dtype=config.dtype)
-                                  for _ in range(config.num_experts)])
-        self.fc3 = nn.ModuleList([nn.Linear(config.moe_hidden_dim, config.emb_dim, bias=False, dtype=config.dtype)
-                                  for _ in range(config.num_experts)])
+        self.fc1 = nn.ModuleList(
+            [
+                nn.Linear(
+                    config.emb_dim,
+                    config.moe_hidden_dim,
+                    bias=False,
+                    dtype=config.dtype,
+                )
+                for _ in range(config.num_experts)
+            ]
+        )
+        self.fc2 = nn.ModuleList(
+            [
+                nn.Linear(
+                    config.emb_dim,
+                    config.moe_hidden_dim,
+                    bias=False,
+                    dtype=config.dtype,
+                )
+                for _ in range(config.num_experts)
+            ]
+        )
+        self.fc3 = nn.ModuleList(
+            [
+                nn.Linear(
+                    config.moe_hidden_dim,
+                    config.emb_dim,
+                    bias=False,
+                    dtype=config.dtype,
+                )
+                for _ in range(config.num_experts)
+            ]
+        )
 
     def forward(self, x):
         scores = self.gate(x)  # (b, seq_len, num_experts)
@@ -42,7 +71,9 @@ class MoEFeedForward(nn.Module):
 
         batch, seq_len, _ = x.shape
         x_flat = x.reshape(batch * seq_len, -1)
-        out_flat = torch.zeros(batch * seq_len, self.emb_dim, device=x.device, dtype=x.dtype)
+        out_flat = torch.zeros(
+            batch * seq_len, self.emb_dim, device=x.device, dtype=x.dtype
+        )
 
         topk_indices_flat = topk_indices.reshape(-1, self.num_experts_per_tok)
         topk_probs_flat = topk_probs.reshape(-1, self.num_experts_per_tok)
@@ -61,13 +92,21 @@ class MoEFeedForward(nn.Module):
                 continue
 
             expert_input = x_flat.index_select(0, selected_idx)
-            hidden = F.silu(self.fc1[expert_id](expert_input)) * self.fc2[expert_id](expert_input)
+            hidden = F.silu(self.fc1[expert_id](expert_input)) * self.fc2[expert_id](
+                expert_input
+            )
             expert_out = self.fc3[expert_id](hidden)
 
             mask_selected = mask[selected_idx]
             slot_indices = mask_selected.int().argmax(dim=-1, keepdim=True)
-            selected_probs = torch.gather(topk_probs_flat.index_select(0, selected_idx), dim=-1, index=slot_indices).squeeze(-1)
+            selected_probs = torch.gather(
+                topk_probs_flat.index_select(0, selected_idx),
+                dim=-1,
+                index=slot_indices,
+            ).squeeze(-1)
 
-            out_flat.index_add_(0, selected_idx, expert_out * selected_probs.unsqueeze(-1))
+            out_flat.index_add_(
+                0, selected_idx, expert_out * selected_probs.unsqueeze(-1)
+            )
 
         return out_flat.reshape(batch, seq_len, self.emb_dim)

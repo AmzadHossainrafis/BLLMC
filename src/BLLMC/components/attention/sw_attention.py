@@ -10,7 +10,8 @@ change log :
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from BLLMC.components.layers.embeddings import apply_rope
+from BLLMC.components.layers.embeddings import compute_rope_params
 
 class SlidingWindowAttention(nn.Module):
     """
@@ -45,6 +46,18 @@ class SlidingWindowAttention(nn.Module):
         # Fused QKV: single matmul for all three projections
         self.W_qkv = nn.Linear(config.emb_dim, 3 * config.emb_dim, bias=False)
         self.out_proj = nn.Linear(config.emb_dim, config.emb_dim, bias=False)
+
+        # Rotary Position Embeddings (RoPE)
+        
+
+        cos, sin = compute_rope_params(
+            head_dim=self.head_dim,
+            theta_base=getattr(config, "rope_base", 10000.0),
+            context_length=config.context_length,
+            dtype=config.dtype,
+        )
+        self.register_buffer("cos", cos, persistent=False)
+        self.register_buffer("sin", sin, persistent=False)
 
         # KV cache for autoregressive generation
         self.register_buffer("cache_k", None, persistent=False)
@@ -117,18 +130,30 @@ class SlidingWindowAttention(nn.Module):
         qkv = self.W_qkv(x).view(b, T, 3, self.num_heads, self.head_dim)
         q, k, v = qkv.unbind(dim=2)
 
+        # Transpose Q and K to (b, H, T, D) to apply RoPE
+        q = q.transpose(1, 2)
+        k = k.transpose(1, 2)
+
+        # Apply RoPE to Query and Key
+        
+
+        q = apply_rope(q, self.cos, self.sin, offset=self.ptr_current_pos)
+        k = apply_rope(k, self.cos, self.sin, offset=self.ptr_current_pos)
+
         if use_cache:
-            k, v, k_start = self._update_cache(k, v, T)
+            # Transpose RoPE-applied Key back to (b, T, H, D) for the cache
+            k_t = k.transpose(1, 2)
+            k_t, v_t, k_start = self._update_cache(k_t, v, T)
+            # Transpose cached Keys/Values to (b, H, T, D) for attention
+            k = k_t.transpose(1, 2)
+            v = v_t.transpose(1, 2)
             q_start = self.ptr_current_pos
             self.ptr_current_pos += T
         else:
             q_start, k_start = 0, 0
             self.ptr_current_pos = 0
-
-        # ── 3. Transpose to (b, H, T, D) for attention ──
-        q = q.transpose(1, 2)
-        k = k.transpose(1, 2)
-        v = v.transpose(1, 2)
+            # If not caching, transpose Value to (b, H, T, D)
+            v = v.transpose(1, 2)
 
         # ── 4. Attention ──
         drop = self.dropout_p if self.training else 0.0

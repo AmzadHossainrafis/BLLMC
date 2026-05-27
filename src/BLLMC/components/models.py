@@ -1,12 +1,48 @@
 import torch
 import torch.nn as nn
-from typing import Union
 
 # Importing configuration classes
 from BLLMC.components.config import GPT_Config
 from BLLMC.components.blocks.gpt2_block import TransformerBlock
+from BLLMC.components.blocks.mistral_block import MistralBlock
 
 
+class ModelFactory:
+    """
+    Factory class to instantiate models based on the provided configuration.
+    Registers models dynamically to avoid a growing if-else chain.
+    """
+
+    _registry = {}
+
+    @classmethod
+    def register(cls, name: str):
+        """Decorator to register a model class with a specific architecture name."""
+
+        def decorator(model_class):
+            cls._registry[name.lower()] = model_class
+            return model_class
+
+        return decorator
+
+    @classmethod
+    def create_model(cls, config: GPT_Config) -> nn.Module:
+        """
+        Creates and returns a PyTorch model based on the architecture specified in the config.
+        """
+        architecture = config.architecture.lower()
+
+        if architecture not in cls._registry:
+            available = ", ".join(f"'{k}'" for k in cls._registry.keys())
+            raise ValueError(
+                f"Unsupported model architecture: '{architecture}'. "
+                f"Available architectures are: {available}."
+            )
+
+        return cls._registry[architecture](config)
+
+
+@ModelFactory.register("gpt2")
 class GPT2Model(nn.Module):
     def __init__(self, config: GPT_Config):
         super().__init__()
@@ -39,6 +75,45 @@ class GPT2Model(nn.Module):
         return self.lm_head(x)
 
 
+@ModelFactory.register("mistral")
+class MistralModel(nn.Module):
+    """
+    Mistral-style decoder model.
+
+    Architecture:
+        Token Embedding → [MistralBlock x n_layers] → RMSNorm → LM Head
+
+    Each MistralBlock contains:
+        - Pre-RMSNorm → SlidingWindowAttention → Residual
+        - Pre-RMSNorm → MoEFeedForward → Residual
+    """
+
+    def __init__(self, config: GPT_Config):
+        super().__init__()
+        self.config = config
+        self.embeddings = nn.Embedding(config.vocab_size, config.emb_dim)
+        self.dropout = nn.Dropout(config.drop_rate)
+        self.blocks = nn.ModuleList(
+            [MistralBlock(config) for _ in range(config.n_layers)]
+        )
+        self.rms_norm_f = nn.RMSNorm(config.emb_dim)
+        self.lm_head = nn.Linear(config.emb_dim, config.vocab_size, bias=False)
+
+    def forward(self, in_idx, use_cache=False):
+        token_emb = self.embeddings(in_idx)
+        x = self.dropout(token_emb)
+        for block in self.blocks:
+            x = block(x, use_cache=use_cache)
+        x = self.rms_norm_f(x)
+        return self.lm_head(x)
+
+    def reset_cache(self):
+        for block in self.blocks:
+            if hasattr(block, "reset_cache"):
+                block.reset_cache()
+
+
+@ModelFactory.register("llama")
 class LlamaModel(nn.Module):
     def __init__(self, config: GPT_Config):
         super().__init__()
@@ -48,35 +123,3 @@ class LlamaModel(nn.Module):
     def forward(self, x):
         # TODO: Implement forward pass
         return x
-
-
-class ModelFactory:
-    """
-    Factory class to instantiate models based on the provided configuration.
-    """
-
-    @staticmethod
-    def create_model(config: GPT_Config) -> nn.Module:
-        """
-        Creates and returns a PyTorch model based on the architecture specified in the config.
-
-        Args:
-            config: A configuration object containing model hyper-parameters and architecture type.
-
-        Returns:
-            An instance of the requested PyTorch model.
-
-        Raises:
-            ValueError: If the architecture specified in the config is not supported.
-        """
-        # Ensure we're checking in a case-insensitive way
-        architecture = config.architecture.lower()
-
-        if architecture == "gpt2":
-            return GPT2Model(config)
-        elif architecture == "llama":
-            return LlamaModel(config)
-        else:
-            raise ValueError(
-                f"Unsupported model architecture: '{architecture}'. Available architectures are: 'gpt2', 'llama'."
-            )
