@@ -178,6 +178,6 @@ trainer.train()
 
 ## 🤝 Contributors & Support
 
-This project is created and maintained by **[Amzad Hossain Rafi](mailto:amzad.rafi@northsouth.edu)**. 
+This project is created and maintained by **[Amzad Hossain Rafi](mailto:amzadhossain880@gmail.com)**. 
 
 If you are interested in collaborating, scaling up Bangla LLM capabilities, or have suggestions, feel free to **ping me or open an issue/PR!**
