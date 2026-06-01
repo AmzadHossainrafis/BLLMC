@@ -26,6 +26,9 @@ class ModelConfig:
     num_experts_per_tok: int = 2
     moe_hidden_dim: int = 768
 
+    # ── FFN (SwiGLU for LLaMA-style models) ──
+    ffn_hidden_dim: int = 3072  # LLaMA 3 8B uses 14336; default = 4 * emb_dim
+
     def __post_init__(self):
         import torch
 
@@ -117,6 +120,25 @@ def mistral_config(**overrides) -> GPT_Config:
         num_experts=8,
         num_experts_per_tok=2,
         moe_hidden_dim=768,
+    )
+    defaults.update(overrides)
+    return GPT_Config(**defaults)
+
+
+def llama3_config(**overrides) -> GPT_Config:
+    """LLaMA 3 style: RMSNorm, RoPE, GQA, SwiGLU FFN."""
+    defaults = dict(
+        architecture="llama3",
+        n_heads=32,
+        n_kv_heads=8,
+        emb_dim=4096,
+        n_layers=32,
+        context_length=8192,
+        rope_base=500_000.0,
+        ffn_hidden_dim=14336,
+        vocab_size=128256,
+        drop_rate=0.0,
+        sliding_window_size=None,
     )
     defaults.update(overrides)
     return GPT_Config(**defaults)
