@@ -5,6 +5,7 @@ import torch.nn as nn
 from BLLMC.components.config import GPT_Config
 from BLLMC.components.blocks.gpt2_block import TransformerBlock
 from BLLMC.components.blocks.mistral_block import MistralBlock
+from BLLMC.components.blocks.llama_block import Llama3Block
 
 
 class ModelFactory:
@@ -64,9 +65,12 @@ class GPT2Model(nn.Module):
         seq_len = in_idx.shape[1]  # Fixed: Dynamic sequence length
 
         token_emb = self.embeddings(in_idx)
-        position_emb = self.position_embeddings(
-            torch.arange(seq_len, device=in_idx.device)
-        )
+        if config.use_rope:
+            position_emb = apply_rope(seq_len)
+        else:
+            position_emb = self.position_embeddings(
+                torch.arange(seq_len, device=in_idx.device)
+            )
 
         x = token_emb + position_emb
         x = self.dropout(x)
@@ -113,13 +117,30 @@ class MistralModel(nn.Module):
                 block.reset_cache()
 
 
-@ModelFactory.register("llama")
-class LlamaModel(nn.Module):
+@ModelFactory.register("llama3")
+class Llama3Model(nn.Module):
     def __init__(self, config: GPT_Config):
         super().__init__()
         self.config = config
         # TODO: Initialize LLaMA specific components
 
-    def forward(self, x):
-        # TODO: Implement forward pass
-        return x
+        self.embeddings = nn.Embedding(config.vocab_size, config.emb_dim)
+        self.dropout = nn.Dropout(config.drop_rate)
+        self.blocks = nn.ModuleList(
+            [Llama3Block(config) for _ in range(config.n_layers)]
+        )
+        self.rms_norm_f = nn.RMSNorm(config.emb_dim)
+        self.lm_head = nn.Linear(config.emb_dim, config.vocab_size, bias=False)
+
+    def forward(self, in_idx, use_cache=False):
+        token_emb = self.embeddings(in_idx)
+        x = self.dropout(token_emb)
+        for block in self.blocks:
+            x = block(x, use_cache=use_cache)
+        x = self.rms_norm_f(x)
+        return self.lm_head(x)
+
+    def reset_cache(self):
+        for block in self.blocks:
+            if hasattr(block, "reset_cache"):
+                block.reset_cache()

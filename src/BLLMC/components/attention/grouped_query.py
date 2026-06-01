@@ -20,15 +20,15 @@ class GroupedQueryAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
         assert config.emb_dim % config.n_heads == 0
-        assert config.n_heads % config.n_key_val_groups == 0
+        assert config.n_heads % config.n_kv_heads == 0
         self.config = config
         self.head_dim = config.emb_dim // config.n_heads
 
         self.wk = nn.Linear(
-            config.emb_dim, config.n_key_val_groups * self.head_dim, bias=False
+            config.emb_dim, config.n_kv_heads * self.head_dim, bias=False
         )
         self.wv = nn.Linear(
-            config.emb_dim, config.n_key_val_groups * self.head_dim, bias=False
+            config.emb_dim, config.n_kv_heads * self.head_dim, bias=False
         )
 
         self.wq = nn.Linear(config.emb_dim, config.emb_dim, bias=False)
@@ -54,16 +54,8 @@ class GroupedQueryAttention(nn.Module):
 
         # Projections
         # Shape: (b, t, n_groups, head_dim) -> transpose to (b, n_groups, t, head_dim)
-        k = (
-            self.wk(x)
-            .view(b, t, self.config.n_key_val_groups, self.head_dim)
-            .transpose(1, 2)
-        )
-        v = (
-            self.wv(x)
-            .view(b, t, self.config.n_key_val_groups, self.head_dim)
-            .transpose(1, 2)
-        )
+        k = self.wk(x).view(b, t, self.config.n_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.wv(x).view(b, t, self.config.n_kv_heads, self.head_dim).transpose(1, 2)
         q = self.wq(x).view(b, t, self.config.n_heads, self.head_dim).transpose(1, 2)
 
         # Apply RoPE to Query and Key
@@ -84,7 +76,7 @@ class GroupedQueryAttention(nn.Module):
             self.ptr_current_pos = 0
 
         # Repeat key/value groups to match the number of query heads
-        repeats = self.config.n_heads // self.config.n_key_val_groups
+        repeats = self.config.n_heads // self.config.n_kv_heads
         k_head = torch.repeat_interleave(key_base, repeats, dim=1)
         v_head = torch.repeat_interleave(val_base, repeats, dim=1)
 
@@ -109,17 +101,15 @@ class GroupedQueryAttention(nn.Module):
 
         k_positions = torch.arange(num_tokens_K, device=k.device, dtype=torch.long)
 
-        # Mask positions where query index < key index
         q_mask = q_positions[:, None] < k_positions[None, :]
         atten_score = score.masked_fill_(q_mask, -torch.inf)
 
-        # Softmax & dropout
         attention_weights = torch.softmax(
             atten_score / (k_head.shape[-1] ** 0.5), dim=-1
         )
-        attention_weights = self.dropout(attention_weights)
+        attention_weights = self.dro
+        # Context computationpout(attention_weights)
 
-        # Context computation
         context = (attention_weights @ v_head).transpose(1, 2).contiguous()
         context = context.view(b, num_tokens_Q, self.config.emb_dim)
 
@@ -135,7 +125,7 @@ class GroupedQueryAttention(nn.Module):
             f"GroupedQueryAttention("
             f"emb_dim={self.config.emb_dim}, "
             f"n_heads={self.config.n_heads}, "
-            f"n_key_val_groups={self.config.n_key_val_groups}, "
+            f"n_kv_heads={self.config.n_kv_heads}, "
             f"head_dim={self.head_dim})"
         )
 

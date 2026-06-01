@@ -110,3 +110,19 @@ class MoEFeedForward(nn.Module):
             )
 
         return out_flat.reshape(batch, seq_len, self.emb_dim)
+
+
+class Llama2FeedForward(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.gate_proj = nn.Linear(config.emb_dim, config.ffn_hidden_dim, bias=False)
+        self.up_proj = nn.Linear(config.emb_dim, config.ffn_hidden_dim, bias=False)
+        self.down_proj = nn.Linear(config.ffn_hidden_dim, config.emb_dim, bias=False)
+
+    def forward(self, x):
+        hidden = F.silu(self.gate_proj(x)) * self.up_proj(x)
+        return self.down_proj(hidden)
+
+    def __str__(self):
+        return f"Llama2FeedForward(emb_dim={self.config.emb_dim}, ffn_hidden_dim={self.config.ffn_hidden_dim})"

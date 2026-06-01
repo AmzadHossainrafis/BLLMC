@@ -1,7 +1,7 @@
 """
 licence : mit
 author : amzad hossain rafi
-email : [EMAIL_ADDRESS]
+email :  amzad.rafi@northsouth.edu
 
 change log :
     17-5-2026 : start
@@ -47,6 +47,20 @@ class LayerNorm(nn.Module):
 
 
 class RMSNorm(nn.Module):
+    """
+    RMSNorm (Root Mean Square Layer Normalization) module.
+
+    This module applies RMS normalization to the input tensor.
+
+    Args:
+        dim (int): Embedding dimension.
+        eps (float): Epsilon value to avoid division by zero.
+
+    Formula :
+        RMSNorm(x) = x / sqrt(mean(x^2) + eps)
+        output = scale * RMSNorm(x)
+    """
+
     def __init__(self, dim, eps=1e-6):
         super().__init__()
         self.eps = eps
