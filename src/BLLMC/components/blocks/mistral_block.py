@@ -39,11 +39,3 @@ class MistralBlock(nn.Module):
 
     def __repr__(self):
         return self.__str__()
-
-
-if __name__ == "__main__":
-    from BLLMC.components.config import mistral_config
-
-    config = mistral_config()
-    mistral_block = MistralBlock(config)
-    print(mistral_block)
