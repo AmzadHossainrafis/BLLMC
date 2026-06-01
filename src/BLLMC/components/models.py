@@ -65,12 +65,10 @@ class GPT2Model(nn.Module):
         seq_len = in_idx.shape[1]  # Fixed: Dynamic sequence length
 
         token_emb = self.embeddings(in_idx)
-        if config.use_rope:
-            position_emb = apply_rope(seq_len)
-        else:
-            position_emb = self.position_embeddings(
-                torch.arange(seq_len, device=in_idx.device)
-            )
+
+        position_emb = self.position_embeddings(
+            torch.arange(seq_len, device=in_idx.device)
+        )
 
         x = token_emb + position_emb
         x = self.dropout(x)
