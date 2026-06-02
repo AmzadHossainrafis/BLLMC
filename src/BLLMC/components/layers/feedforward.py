@@ -111,6 +111,12 @@ class MoEFeedForward(nn.Module):
 
         return out_flat.reshape(batch, seq_len, self.emb_dim)
 
+    def __str__(self):
+        return f"MoEFeedForward(emb_dim={self.config.emb_dim}, num_experts={self.config.num_experts}, num_experts_per_tok={self.config.num_experts_per_tok})"
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class Llama2FeedForward(nn.Module):
     def __init__(self, config):
@@ -126,3 +132,6 @@ class Llama2FeedForward(nn.Module):
 
     def __str__(self):
         return f"Llama2FeedForward(emb_dim={self.config.emb_dim}, ffn_hidden_dim={self.config.ffn_hidden_dim})"
+
+    def __repr__(self):
+        return self.__str__()
