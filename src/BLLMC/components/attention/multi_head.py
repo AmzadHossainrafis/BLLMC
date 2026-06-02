@@ -129,10 +129,10 @@ class MultiHeadAttention(nn.Module):
         else:
             mask = self.mask[:num_torkens_Q, :num_torkens_K]
 
+
+        attention_scores = attention_scores / (keys.shape[-1] ** 0.5)
         attention_scores = attention_scores.masked_fill_(mask, -torch.inf)
-        attention_weights = torch.softmax(
-            attention_scores / keys.shape[-1] ** 0.5, dim=-1
-        )
+        attention_weights = torch.softmax(attention_scores, dim=-1)
         attention_weights = self.dropout(attention_weights)
         context = (attention_weights @ values).transpose(1, 2).contiguous()
         context = context.view(Batch, num_tokens, self.d_out)
@@ -232,32 +232,27 @@ class MultiHeadAttentionWithRoPE(nn.Module):
         q = self.wq(x)
         v = self.wv(x)
 
-        # Split into multiple heads
-        q = q.view(Batch, num_tokens, self.n_head, self.head_dim)
-        k = k.view(Batch, num_tokens, self.n_head, self.head_dim)
-        v = v.view(Batch, num_tokens, self.n_head, self.head_dim)
+     
+        q = q.view(Batch, num_tokens, self.n_head, self.head_dim).transpose(1, 2)
+        k = k.view(Batch, num_tokens, self.n_head, self.head_dim).transpose(1, 2)
+        v = v.view(Batch, num_tokens, self.n_head, self.head_dim).transpose(1, 2)
 
-        # apply rope to q and k
-        q = apply_rope(q, self.cos_emb, self.sin_emb)
-        k = apply_rope(k, self.cos_emb, self.sin_emb)
+       
+        q = apply_rope(q, self.cos_emb, self.sin_emb, offset=self.ptr_current_pos)
+        k = apply_rope(k, self.cos_emb, self.sin_emb, offset=self.ptr_current_pos)
 
-        # kv cache implementaion
+        # kv cache — concat on dim=2 (the T dimension in B,H,T,D)
         if use_cache:
             if self.k_cache is None:
                 self.k_cache, self.v_cache = k, v
             else:
-                self.k_cache = torch.cat([self.k_cache, k], dim=1)
-                self.v_cache = torch.cat([self.v_cache, v], dim=1)
+                self.k_cache = torch.cat([self.k_cache, k], dim=2)
+                self.v_cache = torch.cat([self.v_cache, v], dim=2)
             keys, values = self.k_cache, self.v_cache
         else:
             keys, values = k, v
 
-        # transpose into (B,n_head,T,head_dim)
-        q = q.transpose(1, 2)
-        keys = keys.transpose(1, 2)
-        values = values.transpose(1, 2)
-
-        attention_scores = q @ keys.transpose(2, 3)
+        attention_scores = q @ keys.transpose(-2, -1)
 
         num_torkens_Q = q.shape[-2]
         num_torkens_K = keys.shape[-2]
@@ -267,16 +262,14 @@ class MultiHeadAttentionWithRoPE(nn.Module):
                 self.ptr_current_pos : self.ptr_current_pos + num_torkens_Q,
                 :num_torkens_K,
             ]
-            # mask = mask | self.mask[:num_torkens_Q, :num_torkens_K] ## This is for the first token where we need to add 1 row and 1 colunm
             self.ptr_current_pos += num_torkens_Q
-
         else:
             mask = self.mask[:num_torkens_Q, :num_torkens_K]
 
+        
+        attention_scores = attention_scores / (keys.shape[-1] ** 0.5)
         attention_scores = attention_scores.masked_fill_(mask, -torch.inf)
-        attention_weights = torch.softmax(
-            attention_scores / keys.shape[-1] ** 0.5, dim=-1
-        )
+        attention_weights = torch.softmax(attention_scores, dim=-1)
         attention_weights = self.dropout(attention_weights)
         context = (attention_weights @ values).transpose(1, 2).contiguous()
         context = context.view(Batch, num_tokens, self.d_out)
