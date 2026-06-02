@@ -45,6 +45,16 @@ class ModelFactory:
 
 @ModelFactory.register("gpt2")
 class GPT2Model(nn.Module):
+    """
+    GPT-2 model architecture.
+
+    Architecture:
+        Token Embedding → [TransformerBlock x n_layers] → LayerNorm → LM Head
+
+    Each TransformerBlock contains:
+        - MultiHeadAttention → Residual
+        - FeedForward → Residual
+    """
     def __init__(self, config: GPT_Config):
         super().__init__()
         self.config = config
@@ -63,7 +73,6 @@ class GPT2Model(nn.Module):
 
     def forward(self, in_idx):
         seq_len = in_idx.shape[1]  # Fixed: Dynamic sequence length
-
         token_emb = self.embeddings(in_idx)
 
         position_emb = self.position_embeddings(
@@ -120,7 +129,6 @@ class Llama3Model(nn.Module):
     def __init__(self, config: GPT_Config):
         super().__init__()
         self.config = config
-        # TODO: Initialize LLaMA specific components
 
         self.embeddings = nn.Embedding(config.vocab_size, config.emb_dim)
         self.dropout = nn.Dropout(config.drop_rate)
@@ -142,3 +150,31 @@ class Llama3Model(nn.Module):
         for block in self.blocks:
             if hasattr(block, "reset_cache"):
                 block.reset_cache()
+
+
+@ModelFactory.register("Qwen3")
+class Qwen3Model(nn.Module):
+    def __init__(self, config: GPT_Config):
+        super().__init__()
+        self.config = config
+        pass
+
+    def forward(self, in_idx, use_cache=False):
+        pass
+
+    def reset_cache(self):
+        pass
+
+
+@ModelFactory.register("gemma4")
+class Gemma4Model(nn.Module):
+    def __init__(self, config: GPT_Config):
+        super().__init__()
+        self.config = config
+        pass
+
+    def forward(self, in_idx, use_cache=False):
+        pass
+
+    def reset_cache(self):
+        pass
