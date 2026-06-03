@@ -16,18 +16,12 @@ class ModelConfig:
     context_length: int = 256
     drop_rate: float = 0.1
     rope_base: float = 100_000.0
-    dtype: object = None  # defaults to torch.float32 in __post_init__
-
-    # ── Sliding Window Attention ──
-    sliding_window_size: Optional[int] = None  # None = full causal attention
-
-    # ── MoE (Mixture of Experts) ──
+    dtype: object = None
+    sliding_window_size: Optional[int] = None 
     num_experts: int = 8
     num_experts_per_tok: int = 2
     moe_hidden_dim: int = 768
-
-    # ── FFN (SwiGLU for LLaMA-style models) ──
-    ffn_hidden_dim: int = 3072  # LLaMA 3 8B uses 14336; default = 4 * emb_dim
+    ffn_hidden_dim: int = 3072
 
     def __post_init__(self):
         import torch
@@ -95,9 +89,6 @@ class GPT_Config(ModelConfig, DataConfig, TrainingConfig):
     pass
 
 
-# ── Architecture Presets ──
-
-
 def gpt2_config(**overrides) -> GPT_Config:
     """GPT-2 style: LayerNorm, learned positional embeddings, dense FFN."""
     defaults = dict(
@@ -116,7 +107,7 @@ def mistral_config(**overrides) -> GPT_Config:
         architecture="mistral",
         n_heads=12,
         n_kv_heads=4,
-        sliding_window_size=4096,
+        sliding_window_size=256,
         num_experts=8,
         num_experts_per_tok=2,
         moe_hidden_dim=768,
@@ -137,8 +128,8 @@ def llama3_config(**overrides) -> GPT_Config:
         rope_base=500_000.0,
         ffn_hidden_dim=14336,
         vocab_size=128256,
-        drop_rate=0.0,
         sliding_window_size=None,
+        drop_rate=0.0,  # LLaMA 3 doesn't use dropout
     )
     defaults.update(overrides)
     return GPT_Config(**defaults)
