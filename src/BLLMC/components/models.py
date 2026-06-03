@@ -71,7 +71,7 @@ class GPT2Model(nn.Module):
         self.lm_head = nn.Linear(config.emb_dim, config.vocab_size, bias=False)
         self.lm_head.weight = self.embeddings.weight
 
-    def forward(self, in_idx):
+    def forward(self, in_idx, use_cache=False):
         seq_len = in_idx.shape[1]  # Fixed: Dynamic sequence length
         token_emb = self.embeddings(in_idx)
 
@@ -202,7 +202,7 @@ class LlamaModel(nn.Module):
         self.lm_head = nn.Linear(config.emb_dim, config.vocab_size, bias=False)
 
     def forward(self, in_idx, use_cache=False):
-        token_emb = self.embeddings(in_idx)
+        x = self.embeddings(in_idx)
         for block in self.blocks:
             x = block(x, use_cache=use_cache)
         x = self.rms_norm_f(x)
@@ -212,31 +212,3 @@ class LlamaModel(nn.Module):
         for block in self.blocks:
             if hasattr(block, "reset_cache"):
                 block.reset_cache()
-
-
-@ModelFactory.register("Qwen3")
-class Qwen3Model(nn.Module):
-    def __init__(self, config: GPT_Config):
-        super().__init__()
-        self.config = config
-        pass
-
-    def forward(self, in_idx, use_cache=False):
-        pass
-
-    def reset_cache(self):
-        pass
-
-
-@ModelFactory.register("gemma4")
-class Gemma4Model(nn.Module):
-    def __init__(self, config: GPT_Config):
-        super().__init__()
-        self.config = config
-        pass
-
-    def forward(self, in_idx, use_cache=False):
-        pass
-
-    def reset_cache(self):
-        pass
