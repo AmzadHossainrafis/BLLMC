@@ -51,9 +51,30 @@ class Trainer(ABC):
         self.optimizer = self._setup_optimizer()
         self.criterion = nn.CrossEntropyLoss()
 
+        # Setup Automatic Mixed Precision (AMP)
+        self._setup_amp()
+
         if hasattr(self.config, "compile") and self.config.compile:
             print("Compiling model...")
             self.model = torch.compile(self.model)
+
+    def _setup_amp(self):
+        """Configure AMP settings once during initialization."""
+        if "cuda" in self.device:
+            self.device_type = "cuda"
+            if torch.cuda.is_bf16_supported():
+                self.amp_dtype = torch.bfloat16
+                self.scaler = None  # bfloat16 does not need loss scaling
+            else:
+                self.amp_dtype = torch.float16
+                self.scaler = torch.amp.GradScaler("cuda")
+            self.use_amp = True
+        else:
+            # CPU: AMP autocast only supports bfloat16, and benefits are minimal
+            self.device_type = "cpu"
+            self.amp_dtype = torch.bfloat16
+            self.scaler = None
+            self.use_amp = False
 
     def _setup_optimizer(self):
         if self.config.optimizer == "AdamW":
@@ -84,7 +105,7 @@ class Trainer(ABC):
         print(f"Saved checkpoint to {checkpoint_path}")
 
     @torch.no_grad()
-    def generate_output(self, prompt: str):
+    def generate(self, prompt: str):
         pass
 
     @abstractmethod
@@ -113,16 +134,33 @@ class LLMTrainer(Trainer):
 
     def train_step(self, inputs: torch.Tensor, targets: torch.Tensor):
         self.optimizer.zero_grad()
-        model_output = self.model(inputs)
-        loss = self.criterion(
-            model_output.view(-1, model_output.size(-1)), targets.view(-1)
-        )
-        loss.backward()
-        if self.config.gradient_clip > 0:
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(), self.config.gradient_clip
+
+        # Forward pass with AMP autocast
+        with torch.amp.autocast(
+            device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
+        ):
+            model_output = self.model(inputs)
+            loss = self.criterion(
+                model_output.view(-1, model_output.size(-1)), targets.view(-1)
             )
-        self.optimizer.step()
+
+        # Backward pass with optional loss scaling (float16 only)
+        if self.scaler is not None:
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.optimizer)
+            if self.config.gradient_clip > 0:
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), self.config.gradient_clip
+                )
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        else:
+            loss.backward()
+            if self.config.gradient_clip > 0:
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), self.config.gradient_clip
+                )
+            self.optimizer.step()
 
         return loss.item()
 
@@ -133,8 +171,13 @@ class LLMTrainer(Trainer):
 
         for inputs, targets in val_loader:
             inputs, targets = inputs.to(self.device), targets.to(self.device)
-            outputs = self.model(inputs)
-            loss = self.criterion(outputs.view(-1, outputs.size(-1)), targets.view(-1))
+            with torch.amp.autocast(
+                device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
+            ):
+                outputs = self.model(inputs)
+                loss = self.criterion(
+                    outputs.view(-1, outputs.size(-1)), targets.view(-1)
+                )
             val_losses.append(loss.item())
 
         self.model.train()
@@ -145,6 +188,7 @@ class LLMTrainer(Trainer):
 
         for epoch in range(self.config.max_epochs):
             # Training loop with progress bar
+            loss = 0.0  # default in case train_loader is empty
             pbar = tqdm(
                 enumerate(self.train_loader),
                 total=len(self.train_loader),
@@ -167,7 +211,7 @@ class LLMTrainer(Trainer):
                         f"\n--- Epoch {epoch+1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
                     )
 
-                if batch_idx % self.config.gen_indx == 0:
+                if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
                     prompt = (
                         self.config.start_context
                         if self.config.start_context
@@ -192,7 +236,9 @@ class LLMTrainer(Trainer):
         self.model.eval()
         for _ in range(max_new_tokens):
             idx_cond = idx[:, -context_size:]
-            with torch.no_grad():
+            with torch.no_grad(), torch.amp.autocast(
+                device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
+            ):
                 logits = self.model(idx_cond)
             logits = logits[:, -1, :]
             idx_next = torch.argmax(logits, dim=-1, keepdim=True)
@@ -202,8 +248,5 @@ class LLMTrainer(Trainer):
         self.model.train()
         return idx
 
-    
-
-
-
-
+    def generate_from_cache():
+        pass
