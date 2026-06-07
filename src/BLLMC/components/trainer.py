@@ -6,6 +6,8 @@ email : amzad.rafi@northsouth.edu
 change log :
     17-5-2026 : start
     23-5-2026 : implement trainer design pattern
+    8-6-2026 : implement Amp traing loop 
+    
 
 
 #TODO :
@@ -250,3 +252,23 @@ class LLMTrainer(Trainer):
 
     def generate_from_cache():
         pass
+# if __name__ == "__main__":
+#     from BLLMC.components.config import GPT_Config
+#     from BLLMC.components.models import GPT2Model
+#     from BLLMC.data.loader import create_dataloader
+#     from BLLMC.components.trainer import LLMTrainer
+#     import tiktoken
+
+#     config = GPT_Config(compile=False)
+#     model = GPT2Model(config)
+
+#     with open(config.train_data_path, "r", encoding="utf-8") as f:
+
+#     with open(config.val_data_path, "r", encoding="utf-8") as f:
+#         val_data = f.read()
+
+#     train_loader = create_dataloader(train_data, "gpt2", config)
+#     val_loader = create_dataloader(val_data, "gpt2", config)
+
+#     trainer = LLMTrainer(model, train_loader, val_loader, config)
+#     trainer.train()
