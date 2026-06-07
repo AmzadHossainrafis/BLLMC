@@ -39,7 +39,8 @@ def small_config():
         num_workers=0,
         drop_last=True,
     )
-    
+
+
 class TestDataLoaderShapes:
     """Test that DataLoader produces tensors with correct shapes."""
 
@@ -64,16 +65,28 @@ class TestDataLoaderShapes:
         assert targets.dtype == torch.long
 
     def test_different_max_length(self, sample_text):
-        config = GPT_Config(max_length=64, stride=64, batch_size=2,
-                            shuffle=False, num_workers=0, drop_last=True)
+        config = GPT_Config(
+            max_length=64,
+            stride=64,
+            batch_size=2,
+            shuffle=False,
+            num_workers=0,
+            drop_last=True,
+        )
         loader = create_dataloader(sample_text, "gpt2", config)
         inputs, targets = next(iter(loader))
         assert inputs.shape == (2, 64)
         assert targets.shape == (2, 64)
 
     def test_batch_size_one(self, sample_text):
-        config = GPT_Config(max_length=16, stride=16, batch_size=1,
-                            shuffle=False, num_workers=0, drop_last=True)
+        config = GPT_Config(
+            max_length=16,
+            stride=16,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            drop_last=True,
+        )
         loader = create_dataloader(sample_text, "gpt2", config)
         inputs, targets = next(iter(loader))
         assert inputs.shape == (1, 16)
@@ -83,17 +96,30 @@ class TestTargetShift:
     """Test that targets are inputs shifted by 1 (next-token prediction)."""
 
     def test_targets_shifted_by_one(self, sample_text, tokenizer):
-        config = GPT_Config(max_length=32, stride=32, batch_size=1,
-                            shuffle=False, num_workers=0, drop_last=False)
+        config = GPT_Config(
+            max_length=32,
+            stride=32,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
         dataset = BanglaDataset(sample_text, tokenizer, config)
         inputs, targets = dataset[0]
 
-        assert torch.equal(targets[:-1], inputs[1:]), \
-            "Targets should be inputs shifted by 1 position"
+        assert torch.equal(
+            targets[:-1], inputs[1:]
+        ), "Targets should be inputs shifted by 1 position"
 
     def test_first_sample_starts_at_zero(self, sample_text, tokenizer):
-        config = GPT_Config(max_length=16, stride=16, batch_size=1,
-                            shuffle=False, num_workers=0, drop_last=False)
+        config = GPT_Config(
+            max_length=16,
+            stride=16,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
         dataset = BanglaDataset(sample_text, tokenizer, config)
         inputs, _ = dataset[0]
 
@@ -108,6 +134,7 @@ class TestTargetShift:
 
 # ─── Dataset Length Tests ─────────────────────────────────────────
 
+
 class TestDatasetLength:
     """Test dataset length calculation."""
 
@@ -117,41 +144,74 @@ class TestDatasetLength:
 
     def test_length_formula(self, sample_text, tokenizer):
         """Verify length matches the formula: (n_tokens - max_length - 1) // stride + 1."""
-        config = GPT_Config(max_length=32, stride=32, batch_size=1,
-                            shuffle=False, num_workers=0, drop_last=False)
+        config = GPT_Config(
+            max_length=32,
+            stride=32,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
         dataset = BanglaDataset(sample_text, tokenizer, config)
 
-        n_tokens = len(tokenizer.encode(
-            sample_text,
-            allowed_special={"<|EOS|>", "<p>", "</p>", "<number>", "</strong>"},
-        ))
+        n_tokens = len(
+            tokenizer.encode(
+                sample_text,
+                allowed_special={"<|EOS|>", "<p>", "</p>", "<number>", "</strong>"},
+            )
+        )
         expected_len = max(0, (n_tokens - config.max_length - 1) // config.stride + 1)
         assert len(dataset) == expected_len
 
     def test_stride_affects_length(self, sample_text, tokenizer):
         """Smaller stride → more samples (overlapping windows)."""
-        config_big = GPT_Config(max_length=32, stride=32, batch_size=1,
-                                shuffle=False, num_workers=0, drop_last=False)
-        config_small = GPT_Config(max_length=32, stride=8, batch_size=1,
-                                  shuffle=False, num_workers=0, drop_last=False)
+        config_big = GPT_Config(
+            max_length=32,
+            stride=32,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
+        config_small = GPT_Config(
+            max_length=32,
+            stride=8,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
 
         dataset_big = BanglaDataset(sample_text, tokenizer, config_big)
         dataset_small = BanglaDataset(sample_text, tokenizer, config_small)
 
-        assert len(dataset_small) > len(dataset_big), \
-            "Smaller stride should produce more samples"
+        assert len(dataset_small) > len(
+            dataset_big
+        ), "Smaller stride should produce more samples"
 
     def test_short_text_no_crash(self, tokenizer):
         """Very short text should produce 0 samples, not crash."""
-        config = GPT_Config(max_length=256, stride=256, batch_size=1,
-                            shuffle=False, num_workers=0, drop_last=False)
+        config = GPT_Config(
+            max_length=256,
+            stride=256,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
         dataset = BanglaDataset("Hi", tokenizer, config)
         assert len(dataset) == 0
 
     def test_exact_fit_text(self, tokenizer):
         """Text that produces exactly max_length+1 tokens → 1 sample."""
-        config = GPT_Config(max_length=4, stride=4, batch_size=1,
-                            shuffle=False, num_workers=0, drop_last=False)
+        config = GPT_Config(
+            max_length=4,
+            stride=4,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False,
+        )
         # "Hello" encodes to a few tokens, we need exactly 5 tokens
         # Let's just check it doesn't crash and length >= 0
         dataset = BanglaDataset("Hello world foo bar baz", tokenizer, config)
@@ -159,6 +219,7 @@ class TestDatasetLength:
 
 
 # ─── DataLoader Iteration Tests ───────────────────────────────────
+
 
 class TestDataLoaderIteration:
     """Test that we can iterate through the full DataLoader."""
@@ -183,8 +244,16 @@ class TestDataLoaderIteration:
 
     def test_drop_last_behavior(self, sample_text):
         """With drop_last=True, all batches should have full batch_size."""
-        config = GPT_Config(max_length=32, stride=32, batch_size=4,
-                            shuffle=False, num_workers=0, drop_last=True)
+        config = GPT_Config(
+            max_length=32,
+            stride=32,
+            batch_size=4,
+            shuffle=False,
+            num_workers=0,
+            drop_last=True,
+        )
         loader = create_dataloader(sample_text, "gpt2", config)
         for inputs, targets in loader:
-            assert inputs.shape[0] == 4, "All batches should be full with drop_last=True"
+            assert (
+                inputs.shape[0] == 4
+            ), "All batches should be full with drop_last=True"

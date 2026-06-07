@@ -33,7 +33,7 @@ class GroupedQueryAttention(nn.Module):
 
         self.wq = nn.Linear(config.emb_dim, config.emb_dim, bias=False)
         self.wo = nn.Linear(config.emb_dim, config.emb_dim, bias=False)
-        
+
         cos, sin = compute_rope_params(
             head_dim=self.head_dim,
             context_length=config.context_length,
@@ -95,7 +95,7 @@ class GroupedQueryAttention(nn.Module):
         attention_score = attention_score.masked_fill_(q_mask, -torch.inf)
 
         attention_weights = torch.softmax(attention_score, dim=-1)
-    
+
         context = (attention_weights @ v_head).transpose(1, 2).contiguous()
         context = context.view(b, num_tokens_Q, self.config.emb_dim)
 

@@ -13,8 +13,8 @@ import pytest
 import torch
 from BLLMC.components.layers.embeddings import compute_rope_params, apply_rope
 
-
 # ─── compute_rope_params Shape Tests ──────────────────────────────
+
 
 class TestComputeRopeParamsShape:
     """Test that precomputed cos/sin tables have correct shapes."""
@@ -48,6 +48,7 @@ class TestComputeRopeParamsShape:
 
 # ─── compute_rope_params Numerical Properties ────────────────────
 
+
 class TestComputeRopeParamsNumerical:
     """Test mathematical properties of RoPE tables."""
 
@@ -62,7 +63,7 @@ class TestComputeRopeParamsNumerical:
     def test_cos_sin_unit_circle(self):
         """cos² + sin² ≈ 1 for all positions and dimensions."""
         cos, sin = compute_rope_params(head_dim=64, context_length=128)
-        identity = cos ** 2 + sin ** 2
+        identity = cos**2 + sin**2
         assert torch.allclose(identity, torch.ones_like(identity), atol=1e-5)
 
     def test_position_zero_cos_is_one(self):
@@ -77,8 +78,12 @@ class TestComputeRopeParamsNumerical:
 
     def test_different_theta_base(self):
         """Higher theta_base should produce lower-frequency rotations."""
-        cos_low, _ = compute_rope_params(head_dim=64, context_length=128, theta_base=10_000)
-        cos_high, _ = compute_rope_params(head_dim=64, context_length=128, theta_base=500_000)
+        cos_low, _ = compute_rope_params(
+            head_dim=64, context_length=128, theta_base=10_000
+        )
+        cos_high, _ = compute_rope_params(
+            head_dim=64, context_length=128, theta_base=500_000
+        )
         # With higher base, cos values at same position should be closer to 1
         # (slower rotation), especially for high-frequency dimensions
         assert cos_high[10].mean() > cos_low[10].mean()
@@ -90,6 +95,7 @@ class TestComputeRopeParamsNumerical:
 
 
 # ─── apply_rope Shape Tests ───────────────────────────────────────
+
 
 class TestApplyRopeShape:
     """Test that apply_rope preserves input shapes."""
@@ -129,6 +135,7 @@ class TestApplyRopeShape:
 
 # ─── apply_rope with Offset (KV Cache) ───────────────────────────
 
+
 class TestApplyRopeOffset:
     """Test that offset parameter works correctly for cached generation."""
 
@@ -156,10 +163,11 @@ class TestApplyRopeOffset:
 
         # Token-by-token with offset
         for t in range(5):
-            token = x[:, :, t:t+1, :]
+            token = x[:, :, t : t + 1, :]
             token_out = apply_rope(token, cos, sin, offset=t)
-            assert torch.allclose(full_out[:, :, t:t+1, :], token_out, atol=1e-5), \
-                f"Mismatch at position {t}"
+            assert torch.allclose(
+                full_out[:, :, t : t + 1, :], token_out, atol=1e-5
+            ), f"Mismatch at position {t}"
 
     def test_max_offset(self):
         """Offset near end of context window should still work."""
@@ -170,6 +178,7 @@ class TestApplyRopeOffset:
 
 
 # ─── apply_rope Numerical Properties ─────────────────────────────
+
 
 class TestApplyRopeNumerical:
     """Test mathematical properties of the rotation."""
@@ -187,13 +196,15 @@ class TestApplyRopeNumerical:
         out = apply_rope(x, cos, sin)
         x_norm = torch.norm(x, dim=-1)
         out_norm = torch.norm(out, dim=-1)
-        assert torch.allclose(x_norm, out_norm, atol=1e-4), \
-            "RoPE should preserve vector norms (it's a rotation)"
+        assert torch.allclose(
+            x_norm, out_norm, atol=1e-4
+        ), "RoPE should preserve vector norms (it's a rotation)"
 
     def test_position_zero_is_identity(self):
         """At position 0, cos=1 and sin=0, so output should equal input."""
         cos, sin = compute_rope_params(head_dim=64, context_length=128)
         x = torch.randn(1, 4, 1, 64)
         out = apply_rope(x, cos, sin, offset=0)
-        assert torch.allclose(x, out, atol=1e-5), \
-            "RoPE at position 0 should be identity"
+        assert torch.allclose(
+            x, out, atol=1e-5
+        ), "RoPE at position 0 should be identity"

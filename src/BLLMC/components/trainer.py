@@ -6,7 +6,7 @@ email : amzad.rafi@northsouth.edu
 change log :
     17-5-2026 : start
     23-5-2026 : implement trainer design pattern
-    8-6-2026 : implement Amp traing loop 
+    8-6-2026 : implement Amp traing loop
 
 
 
@@ -26,6 +26,7 @@ import tiktoken
 from torch.utils.data import DataLoader
 from BLLMC.components.config import GPT_Config
 from BLLMC.components.base import Trainer
+
 
 class LLMTrainer(Trainer):
     def __init__(
@@ -156,6 +157,8 @@ class LLMTrainer(Trainer):
 
     def generate_from_cache():
         pass
+
+
 # if __name__ == "__main__":
 #     from BLLMC.components.config import GPT_Config
 #     from BLLMC.components.models import GPT2Model

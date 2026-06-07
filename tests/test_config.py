@@ -19,8 +19,8 @@ from BLLMC.components.config import (
     llama3_config,
 )
 
-
 # ─── Default Config ───────────────────────────────────────────────
+
 
 class TestDefaultConfig:
     """Test that GPT_Config has correct default values."""
@@ -67,11 +67,13 @@ class TestDefaultConfig:
 
     def test_dtype_defaults_to_float32(self):
         import torch
+
         config = GPT_Config()
         assert config.dtype == torch.float32
 
 
 # ─── Config Inheritance ───────────────────────────────────────────
+
 
 class TestConfigInheritance:
     """Test that GPT_Config properly inherits from all base configs."""
@@ -108,6 +110,7 @@ class TestConfigInheritance:
 
 # ─── Config Overrides ─────────────────────────────────────────────
 
+
 class TestConfigOverrides:
     """Test that field overrides work correctly."""
 
@@ -136,6 +139,7 @@ class TestConfigOverrides:
 
 
 # ─── Architecture Presets ─────────────────────────────────────────
+
 
 class TestGPT2Preset:
     """Test gpt2_config() factory function."""

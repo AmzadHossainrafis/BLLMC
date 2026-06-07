@@ -17,7 +17,7 @@ class ModelConfig:
     drop_rate: float = 0.1
     rope_base: float = 100_000.0
     dtype: object = None
-    sliding_window_size: Optional[int] = None 
+    sliding_window_size: Optional[int] = None
     num_experts: int = 8
     num_experts_per_tok: int = 2
     moe_hidden_dim: int = 768

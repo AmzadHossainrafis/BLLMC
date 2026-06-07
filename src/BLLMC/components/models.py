@@ -19,6 +19,7 @@ class GPT2Model(nn.Module):
         - MultiHeadAttention → Residual
         - FeedForward → Residual
     """
+
     def __init__(self, config: GPT_Config):
         super().__init__()
         self.config = config
@@ -36,7 +37,7 @@ class GPT2Model(nn.Module):
         self.lm_head.weight = self.embeddings.weight
 
     def forward(self, in_idx, use_cache=False):
-        seq_len = in_idx.shape[1] 
+        seq_len = in_idx.shape[1]
         token_emb = self.embeddings(in_idx)
 
         position_emb = self.position_embeddings(
@@ -114,6 +115,7 @@ class Llama3Model(nn.Module):
         drop_rate = 0.0
         vocab_size = 128000
     """
+
     def __init__(self, config: GPT_Config):
         super().__init__()
         self.config = config
@@ -136,6 +138,7 @@ class Llama3Model(nn.Module):
             if hasattr(block, "reset_cache"):
                 block.reset_cache()
 
+
 @ModelFactory.register("llama2")
 class LlamaModel(nn.Module):
     """
@@ -155,6 +158,7 @@ class LlamaModel(nn.Module):
         drop_rate = 0.0
         vocab_size = 32000
     """
+
     def __init__(self, config: GPT_Config):
         super().__init__()
         self.config = config
