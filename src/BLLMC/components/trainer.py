@@ -11,11 +11,9 @@ change log :
 
 
 #TODO :
-    1. implement checkpoint saving
-    2. add learning rate scheduler
-    3. add early stopping
-    4. add mixed precision training
-    5. distributed multi-gpu training
+    1. add learning rate scheduler
+    2. add early stopping
+    3. add distributed multi-gpu training
 
 """
 
@@ -26,6 +24,8 @@ import tiktoken
 from torch.utils.data import DataLoader
 from BLLMC.components.config import GPT_Config
 from BLLMC.components.base import Trainer
+from BLLMC.utils.logger import logger
+from BLLMC.utils.exception import CustomException
 
 
 class LLMTrainer(Trainer):
