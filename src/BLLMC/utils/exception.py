@@ -1,3 +1,14 @@
+"""
+licence : mit
+author : amzad hossain rafi
+email : amzadhossain880@gmail.com
+
+change log :
+    8-6-2026 : implement exception handling
+
+
+"""
+
 import sys
 
 
