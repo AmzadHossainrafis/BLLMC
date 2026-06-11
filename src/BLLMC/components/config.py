@@ -41,13 +41,19 @@ class ModelConfig:
 class DataConfig:
     """Data paths and split ratios."""
 
-    dataset_path: str = "/home/rafi/Desktop/BLLMC/dataset/demo_text.txt"
+    dataset_path: str = "dataset/demo_text.txt"
     train_data_path: str = "dataset/english_data.txt"
     val_data_path: str = "dataset/english_val.txt"
     test_data_path: str = "dataset/bangla_test.txt"
     val_split: float = 0.1
     test_split: float = 0.1
     train_split: float = 0.9
+    tokenizer_backend: str = "tiktoken"
+    tokenizer_model: str = "gpt2"
+    hf_token: Optional[str] = None
+    repo_id: str = "meta-llama/Llama-2-7b"
+    filename: str = "tokenizer.model"
+    local_path: str = "./dataset/tokenizer_model"
 
 
 @dataclass

@@ -43,3 +43,5 @@ Thumbs.db
 # Misc
 *.log
 .env
+.ruff_cache
+notebook/Llama-2-7b/

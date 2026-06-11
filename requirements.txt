@@ -3,4 +3,5 @@ tiktoken
 gdown
 ruff
 tqdm
+huggingface_hub
 -e . 
