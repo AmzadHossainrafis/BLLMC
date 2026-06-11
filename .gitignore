@@ -31,7 +31,7 @@ runs/
 logs/
 
 # Data
-data/
+/data/
 *.csv
 *.parquet
 *.arrow
