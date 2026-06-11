@@ -17,15 +17,12 @@ change log :
 
 """
 
-import os
 import torch
 import torch.nn as nn
-import tiktoken
 from torch.utils.data import DataLoader
 from BLLMC.components.config import GPT_Config
 from BLLMC.components.base import Trainer
-from BLLMC.utils.logger import logger
-from BLLMC.utils.exception import CustomException
+from BLLMC.data.tokenizer import get_tokenizer
 
 
 class LLMTrainer(Trainer):
@@ -38,6 +35,7 @@ class LLMTrainer(Trainer):
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         super().__init__(model, train_loader, val_loader, config, device)
+        self.tokenizer = get_tokenizer(config)
 
     def train_step(self, inputs: torch.Tensor, targets: torch.Tensor):
         self.optimizer.zero_grad()
@@ -99,7 +97,7 @@ class LLMTrainer(Trainer):
             pbar = tqdm(
                 enumerate(self.train_loader),
                 total=len(self.train_loader),
-                desc=f"Epoch {epoch+1}/{self.config.max_epochs}",
+                desc=f"Epoch {epoch + 1}/{self.config.max_epochs}",
             )
 
             for batch_idx, (inputs, targets) in pbar:
@@ -115,7 +113,7 @@ class LLMTrainer(Trainer):
                         {"loss": f"{loss:.4f}", "val_loss": f"{val_loss:.4f}"}
                     )
                     print(
-                        f"\n--- Epoch {epoch+1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
+                        f"\n--- Epoch {epoch + 1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
                     )
 
                 if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
@@ -124,8 +122,7 @@ class LLMTrainer(Trainer):
                         if self.config.start_context
                         else "Garments are"
                     )
-                    tokenizer = tiktoken.get_encoding("gpt2")
-                    start_tokens = tokenizer.encode(
+                    start_tokens = self.tokenizer.encode(
                         prompt, allowed_special={"<|endoftext|>"}
                     )
                     x = torch.tensor(
@@ -135,7 +132,7 @@ class LLMTrainer(Trainer):
                     result = self.generate(
                         x, max_new_tokens=50, context_size=self.config.context_length
                     )
-                    print(tokenizer.decode(result[0].tolist()))
+                    print(self.tokenizer.decode(result[0].tolist()))
 
             self._save_checkpoint(epoch, loss)
 
@@ -143,8 +140,13 @@ class LLMTrainer(Trainer):
         self.model.eval()
         for _ in range(max_new_tokens):
             idx_cond = idx[:, -context_size:]
-            with torch.no_grad(), torch.amp.autocast(
-                device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
+            with (
+                torch.no_grad(),
+                torch.amp.autocast(
+                    device_type=self.device_type,
+                    dtype=self.amp_dtype,
+                    enabled=self.use_amp,
+                ),
             ):
                 logits = self.model(idx_cond)
             logits = logits[:, -1, :]

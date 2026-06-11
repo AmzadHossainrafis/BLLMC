@@ -34,9 +34,9 @@ class SlidingWindowAttention(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        assert (
-            config.emb_dim % config.n_heads == 0
-        ), "d_out must be divisible by num_heads"
+        assert config.emb_dim % config.n_heads == 0, (
+            "d_out must be divisible by num_heads"
+        )
 
         self.d_out = config.emb_dim
         self.num_heads = config.n_heads
