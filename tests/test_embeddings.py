@@ -165,9 +165,9 @@ class TestApplyRopeOffset:
         for t in range(5):
             token = x[:, :, t : t + 1, :]
             token_out = apply_rope(token, cos, sin, offset=t)
-            assert torch.allclose(
-                full_out[:, :, t : t + 1, :], token_out, atol=1e-5
-            ), f"Mismatch at position {t}"
+            assert torch.allclose(full_out[:, :, t : t + 1, :], token_out, atol=1e-5), (
+                f"Mismatch at position {t}"
+            )
 
     def test_max_offset(self):
         """Offset near end of context window should still work."""
@@ -196,15 +196,15 @@ class TestApplyRopeNumerical:
         out = apply_rope(x, cos, sin)
         x_norm = torch.norm(x, dim=-1)
         out_norm = torch.norm(out, dim=-1)
-        assert torch.allclose(
-            x_norm, out_norm, atol=1e-4
-        ), "RoPE should preserve vector norms (it's a rotation)"
+        assert torch.allclose(x_norm, out_norm, atol=1e-4), (
+            "RoPE should preserve vector norms (it's a rotation)"
+        )
 
     def test_position_zero_is_identity(self):
         """At position 0, cos=1 and sin=0, so output should equal input."""
         cos, sin = compute_rope_params(head_dim=64, context_length=128)
         x = torch.randn(1, 4, 1, 64)
         out = apply_rope(x, cos, sin, offset=0)
-        assert torch.allclose(
-            x, out, atol=1e-5
-        ), "RoPE at position 0 should be identity"
+        assert torch.allclose(x, out, atol=1e-5), (
+            "RoPE at position 0 should be identity"
+        )
