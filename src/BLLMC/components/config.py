@@ -29,12 +29,12 @@ class ModelConfig:
         if self.dtype is None:
             self.dtype = torch.float32
 
-        assert (
-            self.emb_dim % self.n_heads == 0
-        ), f"emb_dim ({self.emb_dim}) must be divisible by n_heads ({self.n_heads})"
-        assert (
-            self.n_heads % self.n_kv_heads == 0
-        ), f"n_heads ({self.n_heads}) must be divisible by n_kv_heads ({self.n_kv_heads})"
+        assert self.emb_dim % self.n_heads == 0, (
+            f"emb_dim ({self.emb_dim}) must be divisible by n_heads ({self.n_heads})"
+        )
+        assert self.n_heads % self.n_kv_heads == 0, (
+            f"n_heads ({self.n_heads}) must be divisible by n_kv_heads ({self.n_kv_heads})"
+        )
 
 
 @dataclass
@@ -48,10 +48,10 @@ class DataConfig:
     val_split: float = 0.1
     test_split: float = 0.1
     train_split: float = 0.9
-    tokenizer_backend: str = "tiktoken"
-    tokenizer_model: str = "gpt2"
+    tokenizer_backend: str = "sentencepiece"
+    tokenizer_model: str = "./dataset/tokenizer_model/tokenizer.model"
     hf_token: Optional[str] = None
-    repo_id: str = "meta-llama/Llama-2-7b"
+    repo_id: str = "hf-internal-testing/llama-tokenizer"
     filename: str = "tokenizer.model"
     local_path: str = "./dataset/tokenizer_model"
 
@@ -136,6 +136,37 @@ def llama3_config(**overrides) -> GPT_Config:
         vocab_size=128256,
         sliding_window_size=None,
         drop_rate=0.0,  # LLaMA 3 doesn't use dropout
+        tokenizer_backend="tiktoken",
+        tokenizer_model="cl100k_base",
+        hf_token=None,
+        repo_id="openai-gpt",
+        filename="vocab.json",
+        local_path="./dataset/tokenizer_model",
+    )
+    defaults.update(overrides)
+    return GPT_Config(**defaults)
+
+
+def llama2_config(**overrides) -> GPT_Config:
+    """LLaMA 2 style: RMSNorm, RoPE, GQA, SwiGLU FFN."""
+    defaults = dict(
+        architecture="llama2",
+        n_heads=32,
+        n_kv_heads=8,
+        emb_dim=4096,
+        n_layers=32,
+        context_length=2048,
+        rope_base=500_000.0,
+        ffn_hidden_dim=14336,
+        vocab_size=32000,
+        sliding_window_size=None,
+        drop_rate=0.0,  # LLaMA 2 doesn't use dropout
+        tokenizer_backend="sentencepiece",
+        tokenizer_model="./dataset/tokenizer_model/tokenizer.model",
+        hf_token=None,
+        repo_id="hf-internal-testing/llama-tokenizer",
+        filename="tokenizer.model",
+        local_path="./dataset/tokenizer_model",
     )
     defaults.update(overrides)
     return GPT_Config(**defaults)
