@@ -7,8 +7,7 @@ change log :
     17-5-2026 : start
     23-5-2026 : implement trainer design pattern
     8-6-2026 : implement Amp traing loop
-
-
+    12-6-2026 : implement tokenizer stategy pattern for using both SentencePiece and Tiktoken in generation
 
 #TODO :
     1. add learning rate scheduler
@@ -17,12 +16,16 @@ change log :
 
 """
 
+import sys
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from BLLMC.components.config import GPT_Config
 from BLLMC.components.base import Trainer
+from tqdm import tqdm
 from BLLMC.data.tokenizer import get_tokenizer
+from BLLMC.utils.logger import logger
+from BLLMC.utils.exception import CustomException
 
 
 class LLMTrainer(Trainer):
@@ -40,7 +43,6 @@ class LLMTrainer(Trainer):
     def train_step(self, inputs: torch.Tensor, targets: torch.Tensor):
         self.optimizer.zero_grad()
 
-        # Forward pass with AMP autocast
         with torch.amp.autocast(
             device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
         ):
@@ -71,6 +73,7 @@ class LLMTrainer(Trainer):
 
     @torch.no_grad()
     def evaluate(self, val_loader: DataLoader):
+        logger.info("Evaluating model...")
         self.model.eval()
         val_losses = []
 
@@ -84,21 +87,25 @@ class LLMTrainer(Trainer):
                     outputs.view(-1, outputs.size(-1)), targets.view(-1)
                 )
             val_losses.append(loss.item())
-
+        logger.info("Evaluation complete.")
         self.model.train()
         return torch.mean(torch.tensor(val_losses)).item()
 
     def train(self):
-        from tqdm import tqdm
+        logger.info("=" * 100)
+        logger.info("Starting training...")
+        logger.info(f"experiment config : {self.config}")
+        logger.info("=" * 100)
 
-        for epoch in range(self.config.max_epochs):
-            # Training loop with progress bar
-            loss = 0.0  # default in case train_loader is empty
-            pbar = tqdm(
-                enumerate(self.train_loader),
-                total=len(self.train_loader),
-                desc=f"Epoch {epoch + 1}/{self.config.max_epochs}",
-            )
+        try:
+            for epoch in range(self.config.max_epochs):
+                # Training loop with progress bar
+                loss = 0.0  # default in case train_loader is empty
+                pbar = tqdm(
+                    enumerate(self.train_loader),
+                    total=len(self.train_loader),
+                    desc=f"Epoch {epoch + 1}/{self.config.max_epochs}",
+                )
 
             for batch_idx, (inputs, targets) in pbar:
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
@@ -115,7 +122,7 @@ class LLMTrainer(Trainer):
                     print(
                         f"\n--- Epoch {epoch + 1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
                     )
-
+                    logger.info(f"Val loss: {val_loss:.4f}")
                 if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
                     prompt = (
                         self.config.start_context
@@ -133,11 +140,15 @@ class LLMTrainer(Trainer):
                         x, max_new_tokens=50, context_size=self.config.context_length
                     )
                     print(self.tokenizer.decode(result[0].tolist()))
-
+                
             self._save_checkpoint(epoch, loss)
+        except Exception as e:
+            logger.error(f"Error in epoch {epoch}:\n {e}")
+            raise CustomException(e, sys)
 
     def generate(self, idx, max_new_tokens, context_size, eos_id=None):
         self.model.eval()
+        logger.info("--------Generating text--------")
         for _ in range(max_new_tokens):
             idx_cond = idx[:, -context_size:]
             with (
@@ -157,27 +168,4 @@ class LLMTrainer(Trainer):
         self.model.train()
         return idx
 
-    def generate_from_cache():
-        pass
-
-
-# if __name__ == "__main__":
-#     from BLLMC.components.config import GPT_Config
-#     from BLLMC.components.models import GPT2Model
-#     from BLLMC.data.loader import create_dataloader
-#     from BLLMC.components.trainer import LLMTrainer
-#     import tiktoken
-
-#     config = GPT_Config(compile=False)
-#     model = GPT2Model(config)
-
-#     with open(config.train_data_path, "r", encoding="utf-8") as f:
-
-#     with open(config.val_data_path, "r", encoding="utf-8") as f:
-#         val_data = f.read()
-
-#     train_loader = create_dataloader(train_data, "gpt2", config)
-#     val_loader = create_dataloader(val_data, "gpt2", config)
-
-#     trainer = LLMTrainer(model, train_loader, val_loader, config)
-#     trainer.train()
+    
