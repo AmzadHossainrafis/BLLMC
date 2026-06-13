@@ -43,8 +43,8 @@ class GroupedQueryAttention(nn.Module):
 
         self.register_buffer("cos", cos, persistent=False)
         self.register_buffer("sin", sin, persistent=False)
-        self.k_cache = None
-        self.v_cache = None
+        self.register_buffer("k_cache", None, persistent=False)
+        self.register_buffer("v_cache", None, persistent=False)
         self.ptr_current_pos = 0
 
     def forward(self, x: torch.Tensor, use_cache=False):
