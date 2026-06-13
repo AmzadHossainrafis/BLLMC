@@ -29,12 +29,12 @@ class ModelConfig:
         if self.dtype is None:
             self.dtype = torch.float32
 
-        assert self.emb_dim % self.n_heads == 0, (
-            f"emb_dim ({self.emb_dim}) must be divisible by n_heads ({self.n_heads})"
-        )
-        assert self.n_heads % self.n_kv_heads == 0, (
-            f"n_heads ({self.n_heads}) must be divisible by n_kv_heads ({self.n_kv_heads})"
-        )
+        assert (
+            self.emb_dim % self.n_heads == 0
+        ), f"emb_dim ({self.emb_dim}) must be divisible by n_heads ({self.n_heads})"
+        assert (
+            self.n_heads % self.n_kv_heads == 0
+        ), f"n_heads ({self.n_heads}) must be divisible by n_kv_heads ({self.n_kv_heads})"
 
 
 @dataclass
