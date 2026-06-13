@@ -107,9 +107,9 @@ class TestTargetShift:
         dataset = BanglaDataset(sample_text, tokenizer, config)
         inputs, targets = dataset[0]
 
-        assert torch.equal(targets[:-1], inputs[1:]), (
-            "Targets should be inputs shifted by 1 position"
-        )
+        assert torch.equal(
+            targets[:-1], inputs[1:]
+        ), "Targets should be inputs shifted by 1 position"
 
     def test_first_sample_starts_at_zero(self, sample_text, tokenizer):
         config = GPT_Config(
@@ -185,9 +185,9 @@ class TestDatasetLength:
         dataset_big = BanglaDataset(sample_text, tokenizer, config_big)
         dataset_small = BanglaDataset(sample_text, tokenizer, config_small)
 
-        assert len(dataset_small) > len(dataset_big), (
-            "Smaller stride should produce more samples"
-        )
+        assert len(dataset_small) > len(
+            dataset_big
+        ), "Smaller stride should produce more samples"
 
     def test_short_text_no_crash(self, tokenizer):
         """Very short text should produce 0 samples, not crash."""
@@ -254,6 +254,6 @@ class TestDataLoaderIteration:
         )
         loader = create_dataloader(sample_text, "gpt2", config)
         for inputs, targets in loader:
-            assert inputs.shape[0] == 4, (
-                "All batches should be full with drop_last=True"
-            )
+            assert (
+                inputs.shape[0] == 4
+            ), "All batches should be full with drop_last=True"
