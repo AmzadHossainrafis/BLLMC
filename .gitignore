@@ -46,5 +46,7 @@ Thumbs.db
 .ruff_cache
 notebook/Llama-2-7b/
 *.model
-dataset/*
-notebook/dataset/*
+dataset/
+notebook/dataset/
+*.txt
+notebook/
