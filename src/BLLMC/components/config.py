@@ -196,12 +196,11 @@ def gptoss_config(**overrides) -> GPT_Config:
         rope_ntk_alpha=1.0,
         rope_ntk_beta=32.0,
         drop_rate=0.0,
-        # Default tokenizer settings
-        tokenizer_backend="sentencepiece",
-        tokenizer_model="./dataset/tokenizer_model/tokenizer.model",
+        tokenizer_backend="tiktoken",
+        tokenizer_model="o200k_harmony",
         hf_token=None,
-        repo_id="hf-internal-testing/llama-tokenizer",
-        filename="tokenizer.model",
+        repo_id="openai-gpt",
+        filename="vocab.json",
         local_path="./dataset/tokenizer_model",
     )
     defaults.update(overrides)
