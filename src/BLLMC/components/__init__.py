@@ -17,12 +17,14 @@ from BLLMC.components.models import (
     MistralModel,
     LlamaModel,
     Llama3Model,
+    GPTOssModel,
 )
 from BLLMC.components.layers.normalization import RMSNorm, LayerNorm
 from BLLMC.components.layers.feedforward import (
     FeedForward,
     MoEFeedForward,
     Llama2FeedForward,
+    GPTOssFeedForward,
 )
 from BLLMC.components.layers.embeddings import apply_rope, compute_rope_params
 from BLLMC.components.attention.gqa_sliding_window import GQASlidingWindowAttention
@@ -30,4 +32,3 @@ from BLLMC.components.attention.grouped_query import GroupedQueryAttention
 from BLLMC.components.attention.sw_attention import SlidingWindowAttention
 from BLLMC.components.attention.gptoss_attention import GPTOssAttention
 from BLLMC.components.blocks.gptoss_block import GPTOssBlock
-

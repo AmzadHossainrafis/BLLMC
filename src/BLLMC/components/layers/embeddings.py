@@ -62,12 +62,11 @@ def compute_rope_params(
     assert head_dim % 2 == 0, "Embedding dimension must be even"
 
     # Compute the inverse frequencies
-    freq = theta_base ** (
-        torch.arange(0, head_dim, 2, dtype=dtype) / head_dim
-    )
+    freq = theta_base ** (torch.arange(0, head_dim, 2, dtype=dtype) / head_dim)
 
     if scaling_factor > 1.0:
         import math
+
         concentration = 0.1 * math.log(scaling_factor) + 1.0
 
         d_half = head_dim / 2
@@ -87,9 +86,9 @@ def compute_rope_params(
         interpolation = 1.0 / (scaling_factor * freq)
         extrapolation = 1.0 / freq
 
-        ramp = (
-            torch.arange(d_half, dtype=dtype, device=freq.device) - low
-        ) / (high - low)
+        ramp = (torch.arange(d_half, dtype=dtype, device=freq.device) - low) / (
+            high - low
+        )
         mask = 1 - ramp.clamp(0, 1)
 
         inv_freq = interpolation * (1 - mask) + extrapolation * mask

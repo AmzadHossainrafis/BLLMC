@@ -93,7 +93,7 @@ class MoEFeedForward(nn.Module):
 
             expert_input = x_flat.index_select(0, selected_idx)
             gate = self.fc1[expert_id](expert_input).clamp(max=7.0)
-            up   = self.fc2[expert_id](expert_input).clamp(min=-7.0, max=7.0)
+            up = self.fc2[expert_id](expert_input).clamp(min=-7.0, max=7.0)
             hidden = F.silu(gate) * up
             expert_out = self.fc3[expert_id](hidden)
 
@@ -159,7 +159,7 @@ class SingleExpert(nn.Module):
 class GPTOssFeedForward(nn.Module):
     """
     GPT-OSS FeedForward Network implementing MoE with custom SwiGLU.
-    
+
     Supports interleaved splitting, clamping limits, scaling and bias adjustments.
     """
 
@@ -169,9 +169,10 @@ class GPTOssFeedForward(nn.Module):
         self.num_experts_per_tok = config.num_experts_per_tok
         self.swiglu_limit = getattr(config, "swiglu_limit", 7.0)
         self.emb_dim = config.emb_dim
-        
+
         # Check if distributed is initialized
         import torch.distributed as dist
+
         self.world_size = dist.get_world_size() if dist.is_initialized() else 1
 
         self.gate = nn.Linear(
@@ -180,53 +181,59 @@ class GPTOssFeedForward(nn.Module):
 
         hidden_dim = getattr(config, "moe_hidden_dim", config.emb_dim)
         # Store experts as sequential containers of two linear layers
-        self.experts = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(
-                    config.emb_dim,
-                    (hidden_dim * 2) // self.world_size,
-                    bias=True,
-                    dtype=config.dtype,
-                ),
-                nn.Linear(
-                    hidden_dim // self.world_size,
-                    config.emb_dim,
-                    bias=True,
-                    dtype=config.dtype,
-                ),
-            )
-            for _ in range(config.num_experts)
-        ])
+        self.experts = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(
+                        config.emb_dim,
+                        (hidden_dim * 2) // self.world_size,
+                        bias=True,
+                        dtype=config.dtype,
+                    ),
+                    nn.Linear(
+                        hidden_dim // self.world_size,
+                        config.emb_dim,
+                        bias=True,
+                        dtype=config.dtype,
+                    ),
+                )
+                for _ in range(config.num_experts)
+            ]
+        )
 
     def forward(self, x):
         batch, seq_len, _ = x.shape
         x_flat = x.reshape(batch * seq_len, -1)
-        
+
         # Compute gating scores
         scores = self.gate(x_flat)
-        
+
         # Get top-k experts
-        topk_scores, topk_indices = torch.topk(scores, self.num_experts_per_tok, dim=-1, sorted=True)
+        topk_scores, topk_indices = torch.topk(
+            scores, self.num_experts_per_tok, dim=-1, sorted=True
+        )
         topk_probs = torch.softmax(topk_scores, dim=-1)
-        
+
         out_flat = torch.zeros_like(x_flat)
-        
+
         # Flatten routing metadata
         topk_indices_flat = topk_indices.view(-1, self.num_experts_per_tok)
         topk_probs_flat = topk_probs.view(-1, self.num_experts_per_tok)
-        
+
         # Process each expert
         for expert_idx in range(self.num_experts):
             mask = (topk_indices_flat == expert_idx).any(dim=-1)
             if not mask.any():
                 continue
-                
+
             token_indices = torch.where(mask)[0]
-            expert_pos = (topk_indices_flat[token_indices] == expert_idx).nonzero(as_tuple=True)[1]
-            
+            expert_pos = (topk_indices_flat[token_indices] == expert_idx).nonzero(
+                as_tuple=True
+            )[1]
+
             expert_input = x_flat[token_indices]
             weights = topk_probs_flat[token_indices, expert_pos]
-            
+
             # Forward through the sequential expert layers:
             # 1. Linear projection (hidden_size -> moe_hidden_dim * 2)
             expert_out = self.experts[expert_idx][0](expert_input)
@@ -234,15 +241,16 @@ class GPTOssFeedForward(nn.Module):
             expert_out = swiglu(expert_out, limit=self.swiglu_limit)
             # 3. Down projection (moe_hidden_dim -> hidden_size)
             expert_out = self.experts[expert_idx][1](expert_out)
-            
+
             out_flat[token_indices] += expert_out * weights.unsqueeze(-1)
 
         # Distributed all-reduce sum across world size ranks
         if self.world_size > 1:
             import torch.distributed as dist
+
             if dist.is_initialized():
                 dist.all_reduce(out_flat, op=dist.ReduceOp.SUM)
-                
+
         return out_flat.reshape(batch, seq_len, self.emb_dim)
 
     def __str__(self):

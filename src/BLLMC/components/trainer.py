@@ -140,7 +140,7 @@ class LLMTrainer(Trainer):
                         x, max_new_tokens=50, context_size=self.config.context_length
                     )
                     print(self.tokenizer.decode(result[0].tolist()))
-                
+
             self._save_checkpoint(epoch, loss)
         except Exception as e:
             logger.error(f"Error in epoch {epoch}:\n {e}")
@@ -167,5 +167,3 @@ class LLMTrainer(Trainer):
             idx = torch.cat((idx, idx_next), dim=1)
         self.model.train()
         return idx
-
-    
