@@ -92,9 +92,9 @@ class MoEFeedForward(nn.Module):
                 continue
 
             expert_input = x_flat.index_select(0, selected_idx)
-            hidden = F.silu(self.fc1[expert_id](expert_input)) * self.fc2[expert_id](
-                expert_input
-            )
+            gate = self.fc1[expert_id](expert_input).clamp(max=7.0)
+            up   = self.fc2[expert_id](expert_input).clamp(min=-7.0, max=7.0)
+            hidden = F.silu(gate) * up
             expert_out = self.fc3[expert_id](hidden)
 
             mask_selected = mask[selected_idx]
@@ -132,6 +132,25 @@ class Llama2FeedForward(nn.Module):
 
     def __str__(self):
         return f"Llama2FeedForward(emb_dim={self.config.emb_dim}, ffn_hidden_dim={self.config.ffn_hidden_dim})"
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class SingleExpert(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.gate_proj = nn.Linear(config.emb_dim, config.ffn_hidden_dim, bias=False)
+        self.up_proj = nn.Linear(config.emb_dim, config.ffn_hidden_dim, bias=False)
+        self.down_proj = nn.Linear(config.ffn_hidden_dim, config.emb_dim, bias=False)
+
+    def forward(self, x):
+        hidden = F.silu(self.gate_proj(x)) * self.up_proj(x)
+        return self.down_proj(hidden)
+
+    def __str__(self):
+        return f"SingleExpert(emb_dim={self.config.emb_dim}, ffn_hidden_dim={self.config.ffn_hidden_dim})"
 
     def __repr__(self):
         return self.__str__()
