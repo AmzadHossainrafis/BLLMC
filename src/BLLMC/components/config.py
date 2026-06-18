@@ -22,6 +22,10 @@ class ModelConfig:
     num_experts_per_tok: int = 2
     moe_hidden_dim: int = 768
     ffn_hidden_dim: int = 3072
+    swiglu_limit: float = 7.0
+    rope_scaling_factor: float = 1.0
+    rope_ntk_alpha: float = 1.0
+    rope_ntk_beta: float = 32.0
 
     def __post_init__(self):
         import torch
@@ -161,6 +165,38 @@ def llama2_config(**overrides) -> GPT_Config:
         vocab_size=32000,
         sliding_window_size=None,
         drop_rate=0.0,  # LLaMA 2 doesn't use dropout
+        tokenizer_backend="sentencepiece",
+        tokenizer_model="./dataset/tokenizer_model/tokenizer.model",
+        hf_token=None,
+        repo_id="hf-internal-testing/llama-tokenizer",
+        filename="tokenizer.model",
+        local_path="./dataset/tokenizer_model",
+    )
+    defaults.update(overrides)
+    return GPT_Config(**defaults)
+
+
+def gptoss_config(**overrides) -> GPT_Config:
+    """GPT-OSS style: GQA, sliding window, learnable attention sinks, custom SwiGLU MoE."""
+    defaults = dict(
+        architecture="gptoss",
+        vocab_size=201088,
+        emb_dim=2880,
+        n_heads=64,
+        n_kv_heads=8,
+        n_layers=24,
+        context_length=4096,
+        rope_base=150000.0,
+        sliding_window_size=128,
+        num_experts=32,
+        num_experts_per_tok=4,
+        moe_hidden_dim=2880,
+        swiglu_limit=7.0,
+        rope_scaling_factor=32.0,
+        rope_ntk_alpha=1.0,
+        rope_ntk_beta=32.0,
+        drop_rate=0.0,
+        # Default tokenizer settings
         tokenizer_backend="sentencepiece",
         tokenizer_model="./dataset/tokenizer_model/tokenizer.model",
         hf_token=None,
