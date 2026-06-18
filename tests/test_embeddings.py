@@ -212,10 +212,12 @@ class TestApplyRopeNumerical:
 
     def test_yarn_scaling_preserves_shape_and_adjusts_values(self):
         """Test that YaRN scaling computes tables of correct shape and adjusts frequency scaling."""
-        cos, sin = compute_rope_params(head_dim=64, context_length=128, scaling_factor=2.0)
+        cos, sin = compute_rope_params(
+            head_dim=64, context_length=128, scaling_factor=2.0
+        )
         assert cos.shape == (128, 64)
         assert sin.shape == (128, 64)
-        
+
         # Norms should be scaled by the concentration factor (1.0 + 0.1 * ln(2))
         expected_concentration = 0.1 * math.log(2.0) + 1.0
         identity = cos**2 + sin**2

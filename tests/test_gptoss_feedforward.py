@@ -46,6 +46,7 @@ def moe_model(config):
 # 1. SwiGLU Activation Tests
 # ────────────────────────────────────────────────────────────────
 
+
 class TestSwiGLUActivation:
     def test_swiglu_shape_reduction(self):
         x = torch.randn(2, 4, 64)
@@ -56,8 +57,8 @@ class TestSwiGLUActivation:
     def test_swiglu_clamp_limits(self):
         # Create inputs larger than the limit (7.0) and smaller than -7.0
         x = torch.zeros(1, 1, 4)
-        x[0, 0, 0] = 50.0   # glu part, index 0 (even)
-        x[0, 0, 1] = 50.0   # linear part, index 1 (odd)
+        x[0, 0, 0] = 50.0  # glu part, index 0 (even)
+        x[0, 0, 1] = 50.0  # linear part, index 1 (odd)
         x[0, 0, 2] = -50.0  # glu part, index 2 (even)
         x[0, 0, 3] = -50.0  # linear part, index 3 (odd)
 
@@ -86,6 +87,7 @@ class TestSwiGLUActivation:
 # 2. GPTOssFeedForward Shape & Health Tests
 # ────────────────────────────────────────────────────────────────
 
+
 class TestGPTOssFeedForwardShapes:
     def test_output_shape(self, moe_model):
         x = torch.randn(2, 8, 128)
@@ -105,25 +107,28 @@ class TestGPTOssFeedForwardShapes:
 # 3. Routing & Expert Gate Tests
 # ────────────────────────────────────────────────────────────────
 
+
 class TestGPTOssRouting:
     def test_routing_correctness(self, config):
         m = GPTOssFeedForward(config)
         m.eval()
-        
+
         x = torch.randn(1, 1, 128)
         # Set gate weights such that token is strongly routed to expert 0 and 2
         with torch.no_grad():
             m.gate.weight.zero_()
             m.gate.bias.zero_()
             m.gate.bias[0] = 100.0  # Expert 0
-            m.gate.bias[2] = 50.0   # Expert 2
-            
+            m.gate.bias[2] = 50.0  # Expert 2
+
             # Forward pass
             out = m(x)
-            
+
             # Since sorted=True, topk indices should be [0, 2]
             scores = m.gate(x.view(1, -1))
-            topk_scores, topk_indices = torch.topk(scores, config.num_experts_per_tok, dim=-1, sorted=True)
+            topk_scores, topk_indices = torch.topk(
+                scores, config.num_experts_per_tok, dim=-1, sorted=True
+            )
             assert topk_indices[0, 0].item() == 0
             assert topk_indices[0, 1].item() == 2
 
@@ -132,31 +137,35 @@ class TestGPTOssRouting:
 # 4. Gradient Flow Tests
 # ────────────────────────────────────────────────────────────────
 
+
 class TestGPTOssFeedForwardGradients:
     def test_gradients_flow(self, config):
         m = GPTOssFeedForward(config)
         m.train()
-        
+
         x = torch.randn(2, 4, 128, requires_grad=True)
         out = m(x)
         out.sum().backward()
-        
+
         assert x.grad is not None
         assert not torch.isnan(x.grad).any()
-        
+
         # Check that experts receive gradients
         assert m.gate.weight.grad is not None
         assert not torch.isnan(m.gate.weight.grad).any()
-        
+
         for i in range(config.num_experts):
             for name, param in m.experts[i].named_parameters():
                 assert param.grad is not None, f"No grad on expert {i} param {name}"
-                assert not torch.isnan(param.grad).any(), f"NaN grad on expert {i} param {name}"
+                assert not torch.isnan(
+                    param.grad
+                ).any(), f"NaN grad on expert {i} param {name}"
 
 
 # ────────────────────────────────────────────────────────────────
 # 5. Block Integration tests
 # ────────────────────────────────────────────────────────────────
+
 
 class TestGPTOssBlockIntegration:
     def test_block_runs_with_moe(self, config):

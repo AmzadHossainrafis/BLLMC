@@ -259,4 +259,3 @@ class TestGPTOssPreset:
         assert config.rope_scaling_factor == 32.0
         assert config.rope_ntk_alpha == 1.0
         assert config.rope_ntk_beta == 32.0
-
