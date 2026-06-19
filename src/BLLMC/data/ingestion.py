@@ -46,7 +46,9 @@ class DataIngestion:
             val_chars = int(total_chars * self.config.val_split)
             test_chars = total_chars - train_chars - val_chars
 
-            logger.info(f"Total characters: {total_chars}. Splits: Train={train_chars}, Val={val_chars}, Test={test_chars}")
+            logger.info(
+                f"Total characters: {total_chars}. Splits: Train={train_chars}, Val={val_chars}, Test={test_chars}"
+            )
 
             # Create directories if they don't exist
             os.makedirs(os.path.dirname(self.config.train_data_path), exist_ok=True)
@@ -60,7 +62,9 @@ class DataIngestion:
                 # Write Train Data
                 if train_chars > 0:
                     logger.info(f"Saving train data to {self.config.train_data_path}")
-                    with open(self.config.train_data_path, "w", encoding="utf-8") as f_out:
+                    with open(
+                        self.config.train_data_path, "w", encoding="utf-8"
+                    ) as f_out:
                         chars_written = 0
                         while chars_written < train_chars:
                             chunk_size = min(1024 * 1024, train_chars - chars_written)
@@ -72,8 +76,12 @@ class DataIngestion:
 
                 # Write Val Data
                 if val_chars > 0 and self.config.val_data_path:
-                    logger.info(f"Saving validation data to {self.config.val_data_path}")
-                    with open(self.config.val_data_path, "w", encoding="utf-8") as f_out:
+                    logger.info(
+                        f"Saving validation data to {self.config.val_data_path}"
+                    )
+                    with open(
+                        self.config.val_data_path, "w", encoding="utf-8"
+                    ) as f_out:
                         chars_written = 0
                         while chars_written < val_chars:
                             chunk_size = min(1024 * 1024, val_chars - chars_written)
@@ -86,7 +94,9 @@ class DataIngestion:
                 # Write Test Data
                 if test_chars > 0 and self.config.test_data_path:
                     logger.info(f"Saving test data to {self.config.test_data_path}")
-                    with open(self.config.test_data_path, "w", encoding="utf-8") as f_out:
+                    with open(
+                        self.config.test_data_path, "w", encoding="utf-8"
+                    ) as f_out:
                         # Write the rest of the file
                         while True:
                             chunk = f_in.read(1024 * 1024)

@@ -9,7 +9,6 @@ from BLLMC.utils.exception import CustomException
 import sys
 
 
-
 class Trainer(ABC):
     """
     Encapsulates the training loop, evaluation, and checkpointing for the language model.
@@ -160,7 +159,7 @@ class ModelFactory:
             cls._registry[name.lower()] = model_class
             logger.info(f"Model {name} registered successfully")
             return model_class
-        
+
         return decorator
 
     @classmethod
@@ -168,7 +167,7 @@ class ModelFactory:
         """
         Creates and returns a PyTorch model based on the architecture specified in the config.
         """
-    
+
         logger.info("Creating model...")
         architecture = config.architecture.lower()
         if architecture not in cls._registry:

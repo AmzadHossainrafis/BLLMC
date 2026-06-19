@@ -4,6 +4,7 @@ from BLLMC.components.config import GPT_Config
 from BLLMC.components.blocks.gpt2_block import TransformerBlock
 from BLLMC.components.blocks.mistral_block import MistralBlock
 from BLLMC.components.blocks.llama_block import Llama3Block, Llama2Block
+from BLLMC.components.blocks.gptoss_block import GPTOssBlock
 from BLLMC.components.base import ModelFactory
 
 
@@ -168,6 +169,39 @@ class LlamaModel(nn.Module):
         )
         self.rms_norm_f = nn.RMSNorm(config.emb_dim)
         self.lm_head = nn.Linear(config.emb_dim, config.vocab_size, bias=False)
+
+    def forward(self, in_idx, use_cache=False):
+        x = self.embeddings(in_idx)
+        for block in self.blocks:
+            x = block(x, use_cache=use_cache)
+        x = self.rms_norm_f(x)
+        return self.lm_head(x)
+
+    def reset_cache(self):
+        for block in self.blocks:
+            if hasattr(block, "reset_cache"):
+                block.reset_cache()
+
+
+@ModelFactory.register("gptoss")
+class GPTOssModel(nn.Module):
+    """
+    GPT-OSS model architecture.
+
+    Architecture:
+        Token Embedding → [GPTOssBlock x n_layers] → RMSNorm → LM Head
+    """
+
+    def __init__(self, config: GPT_Config):
+        super().__init__()
+        self.config = config
+        self.embeddings = nn.Embedding(config.vocab_size, config.emb_dim)
+        self.blocks = nn.ModuleList(
+            [GPTOssBlock(config, layer_idx) for layer_idx in range(config.n_layers)]
+        )
+        self.rms_norm_f = nn.RMSNorm(config.emb_dim)
+        self.lm_head = nn.Linear(config.emb_dim, config.vocab_size, bias=False)
+        self.lm_head.weight = self.embeddings.weight
 
     def forward(self, in_idx, use_cache=False):
         x = self.embeddings(in_idx)

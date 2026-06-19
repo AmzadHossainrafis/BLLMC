@@ -17,7 +17,14 @@ import torch
 
 
 def compute_rope_params(
-    head_dim, theta_base=10_000, context_length=4096, dtype=torch.float32
+    head_dim,
+    theta_base=10_000,
+    context_length=4096,
+    dtype=torch.float32,
+    scaling_factor=1.0,
+    initial_context_length=4096,
+    ntk_alpha=1.0,
+    ntk_beta=32.0,
 ):
     """
     Precompute the cosine and sine tables for Rotary Position Embeddings (RoPE).
@@ -25,6 +32,8 @@ def compute_rope_params(
     RoPE encodes absolute position information into the attention mechanism by rotating
     query and key vectors in 2D subspaces. This function precomputes the rotation
     matrices (as cos/sin pairs) for all positions up to `context_length`.
+
+    Supports YaRN / NTK-by-parts scaling for context window extension.
 
     Args:
         head_dim (int): Dimension of each attention head. Must be even since RoPE
@@ -35,6 +44,10 @@ def compute_rope_params(
         context_length (int): Maximum sequence length to precompute rotations for.
             Default: 4096.
         dtype (torch.dtype): Data type for computation. Default: torch.float32.
+        scaling_factor (float): Scaling factor for context extension. Default: 1.0.
+        initial_context_length (int): Original context length of base model. Default: 4096.
+        ntk_alpha (float): YaRN/NTK alpha parameter. Default: 1.0.
+        ntk_beta (float): YaRN/NTK beta parameter. Default: 32.0.
 
     Returns:
         tuple[torch.Tensor, torch.Tensor]:
@@ -49,14 +62,39 @@ def compute_rope_params(
     assert head_dim % 2 == 0, "Embedding dimension must be even"
 
     # Compute the inverse frequencies
-    # θ_i = 1 / (theta_base^(2i / head_dim)) for i in [0, head_dim/2)
-    inv_freq = 1.0 / (
-        theta_base
-        ** (
-            torch.arange(0, head_dim, 2, dtype=dtype)[: (head_dim // 2)].float()
-            / head_dim
+    freq = theta_base ** (torch.arange(0, head_dim, 2, dtype=dtype) / head_dim)
+
+    if scaling_factor > 1.0:
+        import math
+
+        concentration = 0.1 * math.log(scaling_factor) + 1.0
+
+        d_half = head_dim / 2
+        # NTK by parts
+        low = (
+            d_half
+            * math.log(initial_context_length / (ntk_beta * 2 * math.pi))
+            / math.log(theta_base)
         )
-    )
+        high = (
+            d_half
+            * math.log(initial_context_length / (ntk_alpha * 2 * math.pi))
+            / math.log(theta_base)
+        )
+        assert 0 < low < high < d_half - 1
+
+        interpolation = 1.0 / (scaling_factor * freq)
+        extrapolation = 1.0 / freq
+
+        ramp = (torch.arange(d_half, dtype=dtype, device=freq.device) - low) / (
+            high - low
+        )
+        mask = 1 - ramp.clamp(0, 1)
+
+        inv_freq = interpolation * (1 - mask) + extrapolation * mask
+    else:
+        concentration = 1.0
+        inv_freq = 1.0 / freq
 
     # Generate position indices
     positions = torch.arange(context_length, dtype=dtype)
@@ -70,8 +108,8 @@ def compute_rope_params(
     angles = torch.cat([angles, angles], dim=1)  # Shape: (context_length, head_dim)
 
     # Precompute sine and cosine
-    cos = torch.cos(angles)
-    sin = torch.sin(angles)
+    cos = torch.cos(angles) * concentration
+    sin = torch.sin(angles) * concentration
 
     return cos, sin
 
@@ -108,19 +146,24 @@ def apply_rope(x, cos, sin, offset=0):
     batch_size, num_heads, seq_len, head_dim = x.shape
     assert head_dim % 2 == 0, "Head dimension must be even"
 
-    # Split x into first half and second half
-    x1 = x[..., : head_dim // 2]  # First half
-    x2 = x[..., head_dim // 2 :]  # Second half
+    half_dim = head_dim // 2
 
-    # Slice and broadcast cos/sin for the current sequence positions
-    # (context_length, head_dim) -> (1, 1, seq_len, head_dim)
-    cos = cos[offset : offset + seq_len, :].unsqueeze(0).unsqueeze(0)
-    sin = sin[offset : offset + seq_len, :].unsqueeze(0).unsqueeze(0)
+    # Slice and broadcast cos/sin for the current sequence positions.
+    # We only slice the first half (dim=-1) to avoid redundant computation.
+    cos_half = cos[offset : offset + seq_len, :half_dim].unsqueeze(0).unsqueeze(0)
+    sin_half = sin[offset : offset + seq_len, :half_dim].unsqueeze(0).unsqueeze(0)
+
+    # Split x into first half and second half
+    x1 = x[..., :half_dim]  # First half
+    x2 = x[..., half_dim:]  # Second half
 
     # Apply the rotary transformation:
-    #   [x1', x2'] = [x1, x2] * cos + [-x2, x1] * sin
-    rotated = torch.cat((-x2, x1), dim=-1)
-    x_rotated = (x * cos) + (rotated * sin)
+    #   o1 = x1 * cos_half - x2 * sin_half
+    #   o2 = x2 * cos_half + x1 * sin_half
+    o1 = (x1 * cos_half) - (x2 * sin_half)
+    o2 = (x2 * cos_half) + (x1 * sin_half)
+
+    x_rotated = torch.cat((o1, o2), dim=-1)
 
     # Cast back to input dtype (cos/sin may have been float32)
     return x_rotated.to(dtype=x.dtype)

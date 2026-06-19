@@ -9,6 +9,7 @@ Tests cover:
     - Edge cases (single token, max context)
 """
 
+import math
 import pytest
 import torch
 from BLLMC.components.layers.embeddings import compute_rope_params, apply_rope
@@ -208,3 +209,17 @@ class TestApplyRopeNumerical:
         assert torch.allclose(
             x, out, atol=1e-5
         ), "RoPE at position 0 should be identity"
+
+    def test_yarn_scaling_preserves_shape_and_adjusts_values(self):
+        """Test that YaRN scaling computes tables of correct shape and adjusts frequency scaling."""
+        cos, sin = compute_rope_params(
+            head_dim=64, context_length=128, scaling_factor=2.0
+        )
+        assert cos.shape == (128, 64)
+        assert sin.shape == (128, 64)
+
+        # Norms should be scaled by the concentration factor (1.0 + 0.1 * ln(2))
+        expected_concentration = 0.1 * math.log(2.0) + 1.0
+        identity = cos**2 + sin**2
+        expected_identity = torch.full_like(identity, expected_concentration**2)
+        assert torch.allclose(identity, expected_identity, atol=1e-5)

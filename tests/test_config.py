@@ -17,6 +17,7 @@ from BLLMC.components.config import (
     gpt2_config,
     mistral_config,
     llama3_config,
+    gptoss_config,
 )
 
 # ─── Default Config ───────────────────────────────────────────────
@@ -227,3 +228,34 @@ class TestLlama3Preset:
         config = llama3_config(context_length=2048)
         assert config.context_length == 2048
         assert config.architecture == "llama3"  # preserved
+
+
+class TestGPTOssPreset:
+    """Test gptoss_config() factory function."""
+
+    def test_architecture_name(self):
+        config = gptoss_config()
+        assert config.architecture == "gptoss"
+
+    def test_vocab_size(self):
+        config = gptoss_config()
+        assert config.vocab_size == 201088
+
+    def test_emb_dim(self):
+        config = gptoss_config()
+        assert config.emb_dim == 2880
+
+    def test_moe_params(self):
+        config = gptoss_config()
+        assert config.num_experts == 32
+        assert config.num_experts_per_tok == 4
+        assert config.moe_hidden_dim == 2880
+
+    def test_rope_and_swiglu_defaults(self):
+        config = gptoss_config()
+        assert config.rope_base == 150000.0
+        assert config.sliding_window_size == 128
+        assert config.swiglu_limit == 7.0
+        assert config.rope_scaling_factor == 32.0
+        assert config.rope_ntk_alpha == 1.0
+        assert config.rope_ntk_beta == 32.0
