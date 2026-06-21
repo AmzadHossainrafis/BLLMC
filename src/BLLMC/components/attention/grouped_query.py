@@ -101,7 +101,7 @@ class GroupedQueryAttention(nn.Module):
 
         return self.wo(context)
 
-    def clear_cache(self):
+    def reset_cache(self):
         self.k_cache = None
         self.v_cache = None
         self.ptr_current_pos = 0

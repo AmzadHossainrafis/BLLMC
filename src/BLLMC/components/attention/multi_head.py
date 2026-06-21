@@ -138,7 +138,7 @@ class MultiHeadAttention(nn.Module):
 
         return self.out_proj(context)
 
-    def clear_cache(self):
+    def reset_cache(self):
         self.k_cache = None
         self.v_cache = None
         self.ptr_current_pos = 0
@@ -267,7 +267,7 @@ class MultiHeadAttentionWithRoPE(nn.Module):
 
         return self.out_proj(context)
 
-    def clear_cache(self):
+    def reset_cache(self):
         self.k_cache = None
         self.v_cache = None
         self.ptr_current_pos = 0

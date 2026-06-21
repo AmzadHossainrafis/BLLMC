@@ -107,43 +107,43 @@ class LLMTrainer(Trainer):
                     desc=f"Epoch {epoch + 1}/{self.config.max_epochs}",
                 )
 
-            for batch_idx, (inputs, targets) in pbar:
-                inputs, targets = inputs.to(self.device), targets.to(self.device)
-                loss = self.train_step(inputs, targets)
+                for batch_idx, (inputs, targets) in pbar:
+                    inputs, targets = inputs.to(self.device), targets.to(self.device)
+                    loss = self.train_step(inputs, targets)
 
-                # Update progress bar with current loss
-                pbar.set_postfix({"loss": f"{loss:.4f}"})
+                    # Update progress bar with current loss
+                    pbar.set_postfix({"loss": f"{loss:.4f}"})
 
-                if batch_idx > 0 and batch_idx % self.config.eval_interval == 0:
-                    val_loss = self.evaluate(self.val_loader)
-                    pbar.set_postfix(
-                        {"loss": f"{loss:.4f}", "val_loss": f"{val_loss:.4f}"}
-                    )
-                    print(
-                        f"\n--- Epoch {epoch + 1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
-                    )
-                    logger.info(f"Val loss: {val_loss:.4f}")
-                if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
-                    prompt = (
-                        self.config.start_context
-                        if self.config.start_context
-                        else "Garments are"
-                    )
-                    start_tokens = self.tokenizer.encode(
-                        prompt, allowed_special={"<|endoftext|>"}
-                    )
-                    x = torch.tensor(
-                        start_tokens, dtype=torch.long, device=self.device
-                    )[None, :]
-                    # generate output and decode it
-                    result = self.generate(
-                        x, max_new_tokens=50, context_size=self.config.context_length
-                    )
-                    print(self.tokenizer.decode(result[0].tolist()))
+                    if batch_idx > 0 and batch_idx % self.config.eval_interval == 0:
+                        val_loss = self.evaluate(self.val_loader)
+                        pbar.set_postfix(
+                            {"loss": f"{loss:.4f}", "val_loss": f"{val_loss:.4f}"}
+                        )
+                        print(
+                            f"\n--- Epoch {epoch + 1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
+                        )
+                        logger.info(f"Val loss: {val_loss:.4f}")
+                    if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
+                        prompt = (
+                            self.config.start_context
+                            if self.config.start_context
+                            else "Garments are"
+                        )
+                        start_tokens = self.tokenizer.encode(
+                            prompt, allowed_special={"<|endoftext|>"}
+                        )
+                        x = torch.tensor(
+                            start_tokens, dtype=torch.long, device=self.device
+                        )[None, :]
+                        # generate output and decode it
+                        result = self.generate(
+                            x, max_new_tokens=50, context_size=self.config.context_length
+                        )
+                        print(self.tokenizer.decode(result[0].tolist()))
 
-            self._save_checkpoint(epoch, loss)
+                self._save_checkpoint(epoch, loss)
         except Exception as e:
-            logger.error(f"Error in epoch {epoch}:\n {e}")
+            logger.error(f"Error in training: {e}")
             raise CustomException(e, sys)
 
     def generate(self, idx, max_new_tokens, context_size, eos_id=None):

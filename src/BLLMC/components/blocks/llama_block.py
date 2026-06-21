@@ -23,8 +23,8 @@ class Llama3Block(nn.Module):
         return x
 
     def reset_cache(self):
-        if hasattr(self.attn, "clear_cache"):
-            self.attn.clear_cache()
+        if hasattr(self.attn, "reset_cache"):
+            self.attn.reset_cache()
 
     def __str__(self):
         return (
@@ -62,5 +62,5 @@ class Llama2Block(nn.Module):
         return x
 
     def reset_cache(self):
-        if hasattr(self.attn, "clear_cache"):
-            self.attn.clear_cache()
+        if hasattr(self.attn, "reset_cache"):
+            self.attn.reset_cache()
