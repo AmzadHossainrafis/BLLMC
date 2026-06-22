@@ -3,7 +3,6 @@ import math
 from dataclasses import dataclass
 import pytest
 import torch
-import torch.nn as nn
 
 from BLLMC.components.attention.gptoss_attention import GPTOssAttention
 from BLLMC.components.blocks.gptoss_block import GPTOssBlock

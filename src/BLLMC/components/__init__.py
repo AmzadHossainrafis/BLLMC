@@ -11,7 +11,18 @@ from BLLMC.components.config import (
     llama3_config,
     gptoss_config,
 )
-from BLLMC.components.base import Trainer, ModelFactory
+from BLLMC.components.base import (
+    Trainer,
+    ModelFactory,
+)
+from BLLMC.components.generation import (
+    GenerationStrategy,
+    GreedyGenerationStrategy,
+    TemperatureGenerationStrategy,
+    TopKGenerationStrategy,
+    get_generation_strategy,
+)
+
 from BLLMC.components.models import (
     GPT2Model,
     MistralModel,
@@ -45,6 +56,11 @@ __all__ = [
     "gptoss_config",
     "Trainer",
     "ModelFactory",
+    "GenerationStrategy",
+    "GreedyGenerationStrategy",
+    "TemperatureGenerationStrategy",
+    "TopKGenerationStrategy",
+    "get_generation_strategy",
     "GPT2Model",
     "MistralModel",
     "LlamaModel",

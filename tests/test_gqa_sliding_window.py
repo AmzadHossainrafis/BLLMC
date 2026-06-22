@@ -13,7 +13,7 @@ import pytest
 import torch
 
 from BLLMC.components.attention.gqa_sliding_window import GQASlidingWindowAttention
-from BLLMC.components.layers.embeddings import apply_rope, compute_rope_params
+from BLLMC.components.layers.embeddings import apply_rope
 
 # ──────────────────────────────────────────────
 # Fixtures

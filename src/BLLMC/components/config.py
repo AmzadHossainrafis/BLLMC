@@ -83,6 +83,9 @@ class TrainingConfig:
     stride: int = 256
     gradient_checkpointing: bool = False
     gen_indx: int = 5
+    gen_strategy: str = "greedy"
+    gen_temperature: float = 1.0
+    gen_top_k: int = 50
 
 
 @dataclass
