@@ -17,7 +17,7 @@ from BLLMC.utils.exception import CustomException
 def run_training():
     try:
         # 1. Load the GPT-OSS Configuration scaled down to fit on a single RTX 3090
-                 # 1. Load the GPT-OSS Configuration scaled down to fit on a single RTX 3090
+        # 1. Load the GPT-OSS Configuration scaled down to fit on a single RTX 3090
         config = gptoss_config(
             compile=True,
             batch_size=20,
@@ -34,21 +34,24 @@ def run_training():
             train_data_path="dataset/bangla_train_v2.txt",
             val_data_path="dataset/bangla_val_v2.txt",
             test_data_path="dataset/bangla_test_v2.txt",
-            )
-
+        )
 
         logger.info("Initializing GPT-OSS training pipeline...")
 
         # 2. Handle Dataset: Download if not present
         if not os.path.exists(config.dataset_path):
-            logger.info(f"Dataset path '{config.dataset_path}' not found. Downloading...")
+            logger.info(
+                f"Dataset path '{config.dataset_path}' not found. Downloading..."
+            )
             download_dataset()
             # If the downloaded dataset is placed at a different path, update config
             if os.path.exists("dataset/bangla_dataset.txt"):
                 config.dataset_path = "dataset/bangla_dataset.txt"
 
         # 3. Handle Data Ingestion / Splitting
-        if not os.path.exists(config.train_data_path) or not os.path.exists(config.val_data_path):
+        if not os.path.exists(config.train_data_path) or not os.path.exists(
+            config.val_data_path
+        ):
             logger.info("Ingesting and splitting dataset...")
             ingestion = DataIngestion(config)
             ingestion.initiate_data_ingestion()
@@ -63,7 +66,9 @@ def run_training():
             val_text = f.read()
 
         # 5. Load Tokenizer
-        logger.info(f"Loading tokenizer: backend={config.tokenizer_backend}, model={config.tokenizer_model}")
+        logger.info(
+            f"Loading tokenizer: backend={config.tokenizer_backend}, model={config.tokenizer_model}"
+        )
         tokenizer = get_tokenizer(config)
 
         # 6. Setup Dataset and Dataloaders

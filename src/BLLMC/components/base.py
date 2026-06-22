@@ -178,3 +178,16 @@ class ModelFactory:
             )
         logger.info(f"Creating model with architecture: {architecture}")
         return cls._registry[architecture](config)
+
+
+class TextGeneratorStrategy(ABC):
+    @abstractmethod
+    def generate(self, prompt: str):
+        pass
+
+    @abstractmethod
+    def temp_generate(self, prompt: str, temperature: float = 1.0):
+        pass
+
+    def top_p_generate(self, prompt: str, top_p: float = 0.9):
+        pass
