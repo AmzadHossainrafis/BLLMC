@@ -19,7 +19,7 @@ def run_training():
         # 1. Load the GPT-OSS Configuration scaled down to fit on a single RTX 3090
         config = gptoss_config(
             compile=True,
-            batch_size=10,
+            batch_size=13,
             num_workers=0,
             max_epochs=5,
             n_layers=12,

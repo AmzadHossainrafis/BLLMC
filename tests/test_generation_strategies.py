@@ -82,8 +82,9 @@ def test_top_k_generation_strategy():
 
 
 def test_get_generation_strategy():
-    # Test default
+    # Test greedy strategy
     config = GPT_Config()
+    config.gen_strategy = "greedy"
     strategy = get_generation_strategy(config)
     assert isinstance(strategy, GreedyGenerationStrategy)
 

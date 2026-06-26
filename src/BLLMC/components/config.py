@@ -85,7 +85,7 @@ class TrainingConfig:
     gen_indx: int = 5
     gen_strategy: str = "temperature"
     gen_temperature: float = 0.8
-    gen_top_k: int = 50
+    gen_top_k: int = 3000
 
 
 @dataclass
