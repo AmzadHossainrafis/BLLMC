@@ -2,7 +2,6 @@
 from dataclasses import dataclass
 import pytest
 import torch
-import torch.nn as nn
 
 from BLLMC.components.layers.activations import swiglu
 from BLLMC.components.layers.feedforward import GPTOssFeedForward
@@ -122,7 +121,8 @@ class TestGPTOssRouting:
             m.gate.bias[2] = 50.0  # Expert 2
 
             # Forward pass
-            out = m(x)
+            _ = m(x)
+
 
             # Since sorted=True, topk indices should be [0, 2]
             scores = m.gate(x.view(1, -1))

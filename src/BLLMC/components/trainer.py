@@ -137,7 +137,9 @@ class LLMTrainer(Trainer):
                         )[None, :]
                         # generate output and decode it
                         result = self.generate(
-                            x, max_new_tokens=50, context_size=self.config.context_length
+                            x,
+                            max_new_tokens=50,
+                            context_size=self.config.context_length,
                         )
                         print(self.tokenizer.decode(result[0].tolist()))
 
@@ -145,25 +147,3 @@ class LLMTrainer(Trainer):
         except Exception as e:
             logger.error(f"Error in training: {e}")
             raise CustomException(e, sys)
-
-    def generate(self, idx, max_new_tokens, context_size, eos_id=None):
-        self.model.eval()
-        logger.info("--------Generating text--------")
-        for _ in range(max_new_tokens):
-            idx_cond = idx[:, -context_size:]
-            with (
-                torch.no_grad(),
-                torch.amp.autocast(
-                    device_type=self.device_type,
-                    dtype=self.amp_dtype,
-                    enabled=self.use_amp,
-                ),
-            ):
-                logits = self.model(idx_cond)
-            logits = logits[:, -1, :]
-            idx_next = torch.argmax(logits, dim=-1, keepdim=True)
-            if eos_id is not None and idx_next == eos_id:
-                break
-            idx = torch.cat((idx, idx_next), dim=1)
-        self.model.train()
-        return idx
