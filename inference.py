@@ -3,7 +3,6 @@ import sys
 import argparse
 import torch
 
-# Add the 'src' directory to the path so we can import BLLMC modules
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
 from BLLMC.components.config import gptoss_config
@@ -14,6 +13,7 @@ from BLLMC.components.generation import (
     TemperatureGenerationStrategy,
     TopKGenerationStrategy,
 )
+
 
 def run_inference(
     checkpoint_path: str,
@@ -38,7 +38,9 @@ def run_inference(
     )
 
     # 2. Initialize the tokenizer
-    print(f"Loading tokenizer: {config.tokenizer_backend} / {config.tokenizer_model}...")
+    print(
+        f"Loading tokenizer: {config.tokenizer_backend} / {config.tokenizer_model}..."
+    )
     tokenizer = get_tokenizer(config)
 
     # 3. Create the model architecture
@@ -48,13 +50,13 @@ def run_inference(
     # 4. Load the checkpoint
     print(f"Loading state dict from {checkpoint_path}...")
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
-    
+
     # Strip any torch.compile prefix '_orig_mod.'
     state_dict = checkpoint["model_state_dict"]
     clean_state_dict = {}
     for k, v in state_dict.items():
         if k.startswith("_orig_mod."):
-            clean_state_dict[k[len("_orig_mod."):]] = v
+            clean_state_dict[k[len("_orig_mod.") :]] = v
         else:
             clean_state_dict[k] = v
 
@@ -79,8 +81,10 @@ def run_inference(
     idx = torch.tensor([encoded_prompt], dtype=torch.long)
 
     # 7. Generate tokens
-    print(f"Generating up to {max_new_tokens} tokens using '{strategy_name}' strategy...")
-    
+    print(
+        f"Generating up to {max_new_tokens} tokens using '{strategy_name}' strategy..."
+    )
+
     # We clear cache in attention block first
     if hasattr(model, "reset_cache"):
         model.reset_cache()
@@ -105,6 +109,7 @@ def run_inference(
     print("=" * 50 + "\n")
 
     return generated_text
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run inference on BLLMC checkpoint.")
@@ -147,7 +152,7 @@ def main():
     )
 
     args = parser.parse_args()
-    
+
     run_inference(
         checkpoint_path=args.checkpoint,
         prompt=args.prompt,
@@ -156,6 +161,7 @@ def main():
         temperature=args.temperature,
         top_k=args.top_k,
     )
+
 
 if __name__ == "__main__":
     main()
