@@ -26,6 +26,7 @@ class ModelConfig:
     rope_scaling_factor: float = 1.0
     rope_ntk_alpha: float = 1.0
     rope_ntk_beta: float = 32.0
+    gradient_accumulation_steps: int = 4
 
     def __post_init__(self):
         import torch
@@ -83,6 +84,7 @@ class TrainingConfig:
     stride: int = 256
     gradient_checkpointing: bool = False
     gen_indx: int = 5
+    gradient_accumulation_steps: int = 1
 
 
 @dataclass
