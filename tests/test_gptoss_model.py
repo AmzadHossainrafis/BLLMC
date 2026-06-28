@@ -2,7 +2,6 @@
 from dataclasses import dataclass
 import pytest
 import torch
-import torch.nn as nn
 
 from BLLMC.components.base import ModelFactory
 from BLLMC.components.models import GPTOssModel

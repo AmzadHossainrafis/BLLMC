@@ -17,7 +17,9 @@ class CosineWarmupScheduler:
     Linear warmup for the first `warmup_steps`, then cosine decay to `min_lr`.
     """
 
-    def __init__(self, optimizer, warmup_steps: int, max_steps: int, min_lr: float = 1e-5):
+    def __init__(
+        self, optimizer, warmup_steps: int, max_steps: int, min_lr: float = 1e-5
+    ):
         self.optimizer = optimizer
         self.warmup_steps = warmup_steps
         self.max_steps = max(max_steps, 1)
@@ -46,6 +48,7 @@ class CosineWarmupScheduler:
             return self.min_lr + 0.5 * (self.base_lr - self.min_lr) * (
                 1.0 + math.cos(math.pi * progress)
             )
+
 
 class Trainer(ABC):
     """

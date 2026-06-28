@@ -79,7 +79,7 @@ class TrainingConfig:
     gradient_clip: float = 1.0
     compile: bool = False
     shuffle: bool = True
-    num_workers: int = 0
+    num_workers: int = 4
     drop_last: bool = True
     max_length: int = 256
     stride: int = 256

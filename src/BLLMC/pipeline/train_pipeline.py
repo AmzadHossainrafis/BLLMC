@@ -1,6 +1,5 @@
 import os
 import sys
-import torch
 from torch.utils.data import DataLoader
 
 from BLLMC.components.config import gptoss_config
