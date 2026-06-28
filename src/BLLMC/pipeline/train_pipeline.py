@@ -28,7 +28,6 @@ def run_training():
             n_heads=8,
             n_kv_heads=2,
             moe_hidden_dim=512,
-            head_dim=64,
             dataset_path="dataset/bangla_dataset_v2.txt",
             train_data_path="dataset/bangla_train_v2.txt",
             val_data_path="dataset/bangla_val_v2.txt",
