@@ -70,6 +70,7 @@ class TrainingConfig:
     weight_decay: float = 0.1
     max_epochs: int = 10
     warmup_steps: int = 100
+    min_lr: float = 1e-5
     checkpoint_dir: str = "artifacts/model_ckpt"
     eval_iters: int = 10
     eval_interval: int = 50

@@ -11,9 +11,8 @@ change log :
     29-6-2026 : implement gradient accumulation
 
 #TODO :
-    1. add learning rate scheduler
-    2. add early stopping
-    3. add distributed multi-gpu training
+    1. add early stopping
+    2. add distributed multi-gpu training
 
 
 """
@@ -78,6 +77,7 @@ class LLMTrainer(Trainer):
                     self.model.parameters(), self.config.gradient_clip
                 )
             self.optimizer.step()
+        self.scheduler.step()
         self.optimizer.zero_grad(set_to_none=True)
 
     @torch.no_grad()
@@ -127,8 +127,9 @@ class LLMTrainer(Trainer):
                     inputs, targets = inputs.to(self.device), targets.to(self.device)
                     loss = self.train_step(inputs, targets)
 
-                    # Update progress bar with current loss
-                    pbar.set_postfix({"loss": f"{loss:.4f}"})
+                    # Update progress bar with current loss and LR
+                    current_lr = self.optimizer.param_groups[0]["lr"]
+                    pbar.set_postfix({"loss": f"{loss:.4f}", "lr": f"{current_lr:.2e}"})
 
                     # Step optimizer every accum_steps micro-batches
                     if (batch_idx + 1) % accum_steps == 0:
@@ -140,7 +141,9 @@ class LLMTrainer(Trainer):
                             {"loss": f"{loss:.4f}", "val_loss": f"{val_loss:.4f}"}
                         )
                         print(
-                            f"\n--- Epoch {epoch + 1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
+                            f"\n--- Epoch {epoch + 1} | Step {batch_idx} | "
+                            f"Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} | "
+                            f"LR: {current_lr:.2e} ---"
                         )
                         logger.info(f"Val loss: {val_loss:.4f}")
                     if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
