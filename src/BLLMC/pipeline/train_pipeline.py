@@ -19,8 +19,8 @@ def run_training():
         # 1. Load the GPT-OSS Configuration scaled down to fit on a single RTX 3090
         config = gptoss_config(
             compile=True,
-            batch_size=20,
-            num_workers=0,
+            batch_size=13,
+            num_workers=1,
             max_epochs=5,
             n_layers=12,
             num_experts=4,
@@ -33,6 +33,7 @@ def run_training():
             val_data_path="dataset/bangla_val_v2.txt",
             test_data_path="dataset/bangla_test_v2.txt",
             gradient_accumulation_steps=16,
+            
         )
 
         logger.info("Initializing GPT-OSS training pipeline...")

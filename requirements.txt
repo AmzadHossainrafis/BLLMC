@@ -4,4 +4,5 @@ gdown
 ruff
 tqdm
 huggingface_hub
+sentencepiece
 -e . 

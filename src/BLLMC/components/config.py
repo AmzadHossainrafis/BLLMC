@@ -73,8 +73,8 @@ class TrainingConfig:
     min_lr: float = 1e-5
     checkpoint_dir: str = "artifacts/model_ckpt"
     eval_iters: int = 10
-    eval_interval: int = 50
-    start_context: str = ""
+    eval_interval: int = 120000
+    start_context: str = "এ কথা বললে তো আর সমস্যাটার সমাধান হবে না। আমাকে"
     optimizer: str = "AdamW"
     gradient_clip: float = 1.0
     compile: bool = False
@@ -84,8 +84,8 @@ class TrainingConfig:
     max_length: int = 256
     stride: int = 256
     gradient_checkpointing: bool = False
-    gen_indx: int = 5
-    gradient_accumulation_steps: int = 1
+    gen_indx: int = 50000
+    gradient_accumulation_steps: int = 16
 
 
 @dataclass
