@@ -8,11 +8,12 @@ change log :
     23-5-2026 : implement trainer design pattern
     8-6-2026 : implement Amp traing loop
     12-6-2026 : implement tokenizer stategy pattern for using both SentencePiece and Tiktoken in generation
+    29-6-2026 : implement gradient accumulation
 
 #TODO :
-    1. add learning rate scheduler
-    2. add early stopping
-    3. add distributed multi-gpu training
+    1. add early stopping
+    2. add distributed multi-gpu training
+
 
 """
 
@@ -41,8 +42,7 @@ class LLMTrainer(Trainer):
         self.tokenizer = get_tokenizer(config)
 
     def train_step(self, inputs: torch.Tensor, targets: torch.Tensor):
-        self.optimizer.zero_grad()
-
+        """Forward + backward only. Does NOT step the optimizer (accumulation-friendly)."""
         with torch.amp.autocast(
             device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
         ):
@@ -50,10 +50,20 @@ class LLMTrainer(Trainer):
             loss = self.criterion(
                 model_output.view(-1, model_output.size(-1)), targets.view(-1)
             )
+            # Scale loss so the accumulated mean across micro-batches is correct
+            scaled_loss = loss / self.config.gradient_accumulation_steps
 
-        # Backward pass with optional loss scaling (float16 only)
         if self.scaler is not None:
-            self.scaler.scale(loss).backward()
+            self.scaler.scale(scaled_loss).backward()
+        else:
+            scaled_loss.backward()
+
+        # Return the UNSCALED loss for logging
+        return loss.item()
+
+    def _clip_and_step(self):
+        """Clip gradients, step the optimizer, and zero gradients."""
+        if self.scaler is not None:
             self.scaler.unscale_(self.optimizer)
             if self.config.gradient_clip > 0:
                 torch.nn.utils.clip_grad_norm_(
@@ -62,14 +72,13 @@ class LLMTrainer(Trainer):
             self.scaler.step(self.optimizer)
             self.scaler.update()
         else:
-            loss.backward()
             if self.config.gradient_clip > 0:
                 torch.nn.utils.clip_grad_norm_(
                     self.model.parameters(), self.config.gradient_clip
                 )
             self.optimizer.step()
-
-        return loss.item()
+        self.scheduler.step()
+        self.optimizer.zero_grad(set_to_none=True)
 
     @torch.no_grad()
     def evaluate(self, val_loader: DataLoader):
@@ -95,9 +104,16 @@ class LLMTrainer(Trainer):
         logger.info("=" * 100)
         logger.info("Starting training...")
         logger.info(f"experiment config : {self.config}")
+        accum_steps = self.config.gradient_accumulation_steps
+        logger.info(
+            f"Gradient accumulation: {accum_steps} micro-batches | "
+            f"Effective batch size: {self.config.batch_size * accum_steps} sequences"
+        )
         logger.info("=" * 100)
 
         try:
+            self.optimizer.zero_grad(set_to_none=True)
+
             for epoch in range(self.config.max_epochs):
                 # Training loop with progress bar
                 loss = 0.0  # default in case train_loader is empty
@@ -111,8 +127,13 @@ class LLMTrainer(Trainer):
                     inputs, targets = inputs.to(self.device), targets.to(self.device)
                     loss = self.train_step(inputs, targets)
 
-                    # Update progress bar with current loss
-                    pbar.set_postfix({"loss": f"{loss:.4f}"})
+                    # Update progress bar with current loss and LR
+                    current_lr = self.optimizer.param_groups[0]["lr"]
+                    pbar.set_postfix({"loss": f"{loss:.4f}", "lr": f"{current_lr:.2e}"})
+
+                    # Step optimizer every accum_steps micro-batches
+                    if (batch_idx + 1) % accum_steps == 0:
+                        self._clip_and_step()
 
                     if batch_idx > 0 and batch_idx % self.config.eval_interval == 0:
                         val_loss = self.evaluate(self.val_loader)
@@ -120,7 +141,9 @@ class LLMTrainer(Trainer):
                             {"loss": f"{loss:.4f}", "val_loss": f"{val_loss:.4f}"}
                         )
                         print(
-                            f"\n--- Epoch {epoch + 1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
+                            f"\n--- Epoch {epoch + 1} | Step {batch_idx} | "
+                            f"Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} | "
+                            f"LR: {current_lr:.2e} ---"
                         )
                         logger.info(f"Val loss: {val_loss:.4f}")
                     if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
@@ -142,6 +165,10 @@ class LLMTrainer(Trainer):
                             context_size=self.config.context_length,
                         )
                         print(self.tokenizer.decode(result[0].tolist()))
+
+                # Handle leftover micro-batches at epoch end
+                if (batch_idx + 1) % accum_steps != 0:
+                    self._clip_and_step()
 
                 self._save_checkpoint(epoch, loss)
         except Exception as e:

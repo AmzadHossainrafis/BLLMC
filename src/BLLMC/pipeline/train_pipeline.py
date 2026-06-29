@@ -32,6 +32,8 @@ def run_training():
             train_data_path="dataset/bangla_train_v2.txt",
             val_data_path="dataset/bangla_val_v2.txt",
             test_data_path="dataset/bangla_test_v2.txt",
+            gradient_accumulation_steps=16,
+            
         )
 
         logger.info("Initializing GPT-OSS training pipeline...")

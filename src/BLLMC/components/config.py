@@ -26,6 +26,7 @@ class ModelConfig:
     rope_scaling_factor: float = 1.0
     rope_ntk_alpha: float = 1.0
     rope_ntk_beta: float = 32.0
+    gradient_accumulation_steps: int = 4
 
     def __post_init__(self):
         import torch
@@ -69,23 +70,22 @@ class TrainingConfig:
     weight_decay: float = 0.1
     max_epochs: int = 10
     warmup_steps: int = 100
+    min_lr: float = 1e-5
     checkpoint_dir: str = "artifacts/model_ckpt"
     eval_iters: int = 10
-    eval_interval: int = 50
-    start_context: str = ""
+    eval_interval: int = 120000
+    start_context: str = "এ কথা বললে তো আর সমস্যাটার সমাধান হবে না। আমাকে"
     optimizer: str = "AdamW"
     gradient_clip: float = 1.0
     compile: bool = False
     shuffle: bool = True
-    num_workers: int = 0
+    num_workers: int = 4
     drop_last: bool = True
     max_length: int = 256
     stride: int = 256
     gradient_checkpointing: bool = False
-    gen_indx: int = 5
-    gen_strategy: str = "temperature"
-    gen_temperature: float = 0.8
-    gen_top_k: int = 3000
+    gen_indx: int = 50000
+    gradient_accumulation_steps: int = 16
 
 
 @dataclass
