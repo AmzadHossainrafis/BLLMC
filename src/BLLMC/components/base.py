@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 import math
+from typing import Optional
 import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from BLLMC.components.config import GPT_Config
+from BLLMC.components.generation import GenerationStrategy, get_generation_strategy
 from BLLMC.utils.logger import logger
 from BLLMC.utils.exception import CustomException
 import sys
@@ -63,6 +65,7 @@ class Trainer(ABC):
         val_loader: DataLoader,
         config: GPT_Config,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        generation_strategy: Optional[GenerationStrategy] = None,
     ):
         self.model = model.to(device)
         self.train_loader = train_loader
@@ -75,6 +78,11 @@ class Trainer(ABC):
 
         # Setup Automatic Mixed Precision (AMP)
         self._setup_amp()
+
+        # Setup Generation Strategy
+        self.generation_strategy = generation_strategy or get_generation_strategy(
+            config
+        )
 
         if hasattr(self.config, "compile") and self.config.compile:
             logger.info("Compiling model...")
@@ -189,9 +197,23 @@ class Trainer(ABC):
             logger.error(f"Error loading checkpoint: {e}")
             raise CustomException(e, sys)
 
-    @torch.no_grad()
-    def generate(self, prompt: str):
-        pass
+    def generate(
+        self,
+        idx: torch.Tensor,
+        max_new_tokens: int,
+        context_size: int,
+        eos_id: Optional[int] = None,
+    ) -> torch.Tensor:
+        return self.generation_strategy.generate(
+            model=self.model,
+            idx=idx,
+            max_new_tokens=max_new_tokens,
+            context_size=context_size,
+            device_type=self.device_type,
+            amp_dtype=self.amp_dtype,
+            use_amp=self.use_amp,
+            eos_id=eos_id,
+        )
 
     @abstractmethod
     def train_step(self, inputs: torch.Tensor, targets: torch.Tensor):
@@ -241,16 +263,3 @@ class ModelFactory:
             )
         logger.info(f"Creating model with architecture: {architecture}")
         return cls._registry[architecture](config)
-
-
-class TextGeneratorStrategy(ABC):
-    @abstractmethod
-    def generate(self, prompt: str):
-        pass
-
-    @abstractmethod
-    def temp_generate(self, prompt: str, temperature: float = 1.0):
-        pass
-
-    def top_p_generate(self, prompt: str, top_p: float = 0.9):
-        pass

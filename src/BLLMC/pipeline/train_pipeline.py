@@ -20,7 +20,7 @@ def run_training():
         config = gptoss_config(
             compile=True,
             batch_size=13,
-            num_workers=1,
+            num_workers=0,
             max_epochs=5,
             n_layers=12,
             num_experts=4,

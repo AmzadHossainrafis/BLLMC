@@ -19,6 +19,7 @@ def download_dataset():
     else:
         try:
             logger.info("downloading dataset ")
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
             gdown.download(id=file_id, output=output_file, quiet=False)
             logger.info("dataset download complite ")
 

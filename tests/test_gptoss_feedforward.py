@@ -123,6 +123,7 @@ class TestGPTOssRouting:
             # Forward pass
             _ = m(x)
 
+
             # Since sorted=True, topk indices should be [0, 2]
             scores = m.gate(x.view(1, -1))
             topk_scores, topk_indices = torch.topk(
