@@ -15,6 +15,7 @@ from BLLMC.components.generation import (
     TopKGenerationStrategy,
 )
 
+
 def run_inference(
     checkpoint_path: str,
     prompt: str,
@@ -38,7 +39,9 @@ def run_inference(
     )
 
     # 2. Initialize the tokenizer
-    print(f"Loading tokenizer: {config.tokenizer_backend} / {config.tokenizer_model}...")
+    print(
+        f"Loading tokenizer: {config.tokenizer_backend} / {config.tokenizer_model}..."
+    )
     tokenizer = get_tokenizer(config)
 
     # 3. Create the model architecture
@@ -48,13 +51,13 @@ def run_inference(
     # 4. Load the checkpoint
     print(f"Loading state dict from {checkpoint_path}...")
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
-    
+
     # Strip any torch.compile prefix '_orig_mod.'
     state_dict = checkpoint["model_state_dict"]
     clean_state_dict = {}
     for k, v in state_dict.items():
         if k.startswith("_orig_mod."):
-            clean_state_dict[k[len("_orig_mod."):]] = v
+            clean_state_dict[k[len("_orig_mod.") :]] = v
         else:
             clean_state_dict[k] = v
 
@@ -79,8 +82,10 @@ def run_inference(
     idx = torch.tensor([encoded_prompt], dtype=torch.long)
 
     # 7. Generate tokens
-    print(f"Generating up to {max_new_tokens} tokens using '{strategy_name}' strategy...")
-    
+    print(
+        f"Generating up to {max_new_tokens} tokens using '{strategy_name}' strategy..."
+    )
+
     # We clear cache in attention block first
     if hasattr(model, "reset_cache"):
         model.reset_cache()
@@ -106,6 +111,7 @@ def run_inference(
 
     return generated_text
 
+
 def main():
     parser = argparse.ArgumentParser(description="Run inference on BLLMC checkpoint.")
     parser.add_argument(
@@ -117,7 +123,7 @@ def main():
     parser.add_argument(
         "--prompt",
         type=str,
-        default="সাফজয়ী তিন নারী ফুটবলারকে সংবর্ধনা দিয়েছে সাতক্ষীরা জেলা প্রশাসন",
+        default="বাধা দিয়ে ডাক্তারবাবু বলেন,",
         help="Prompt to begin generation with",
     )
     parser.add_argument(
@@ -130,7 +136,7 @@ def main():
         "--strategy",
         type=str,
         choices=["greedy", "temperature", "top_k"],
-        default="greedy",
+        default="top_k",
         help="Generation strategy to use",
     )
     parser.add_argument(
@@ -147,7 +153,7 @@ def main():
     )
 
     args = parser.parse_args()
-    
+
     run_inference(
         checkpoint_path=args.checkpoint,
         prompt=args.prompt,
@@ -156,6 +162,7 @@ def main():
         temperature=args.temperature,
         top_k=args.top_k,
     )
+
 
 if __name__ == "__main__":
     main()
