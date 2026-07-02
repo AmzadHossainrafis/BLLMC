@@ -29,7 +29,7 @@ class GenerationStrategy(ABC):
 
 
 class GreedyGenerationStrategy(GenerationStrategy):
-    """Greedy text generation strategy (always selects 
+    """Greedy text generation strategy (always selects
     the highest-probability token)."""
 
     def generate(
