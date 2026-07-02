@@ -122,7 +122,7 @@ def main():
     parser.add_argument(
         "--prompt",
         type=str,
-        default="সাফজয়ী তিন নারী ফুটবলারকে সংবর্ধনা দিয়েছে সাতক্ষীরা জেলা প্রশাসন",
+        default="বাধা দিয়ে ডাক্তারবাবু বলেন,",
         help="Prompt to begin generation with",
     )
     parser.add_argument(
@@ -135,7 +135,7 @@ def main():
         "--strategy",
         type=str,
         choices=["greedy", "temperature", "top_k"],
-        default="greedy",
+        default="top_k",
         help="Generation strategy to use",
     )
     parser.add_argument(
