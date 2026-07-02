@@ -9,6 +9,8 @@ change log :
     8-6-2026 : implement Amp traing loop
     12-6-2026 : implement tokenizer stategy pattern for using both SentencePiece and Tiktoken in generation
     29-6-2026 : implement gradient accumulation
+    2-7-2026 : fix model checkpoint saving naming and eval exception handeling 
+    
 
 #TODO :
     1. add early stopping
@@ -86,19 +88,31 @@ class LLMTrainer(Trainer):
         self.model.eval()
         val_losses = []
 
-        for inputs, targets in val_loader:
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            with torch.amp.autocast(
-                device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
-            ):
-                outputs = self.model(inputs)
-                loss = self.criterion(
-                    outputs.view(-1, outputs.size(-1)), targets.view(-1)
-                )
-            val_losses.append(loss.item())
+        try:
+            with tqdm(
+                val_loader,
+                desc="Evaluating",
+                leave=False,
+            ) as val_bar:
+                for inputs, targets in val_bar:
+                    inputs, targets = inputs.to(self.device), targets.to(self.device)
+                    with torch.amp.autocast(
+                        device_type=self.device_type,
+                        dtype=self.amp_dtype,
+                        enabled=self.use_amp,
+                    ):
+                        outputs = self.model(inputs)
+                        loss = self.criterion(
+                            outputs.view(-1, outputs.size(-1)), targets.view(-1)
+                        )
+                    val_losses.append(loss.item())
+                    val_bar.set_postfix({"val_loss": f"{loss.item():.4f}"})
+        except Exception as e:
+            raise CustomException(e, sys)
+        finally:
+            self.model.train()
         logger.info("Evaluation complete.")
-        self.model.train()
-        return torch.mean(torch.tensor(val_losses)).item()
+        return sum(val_losses) / len(val_losses) if val_losses else 0.0
 
     def train(self):
         logger.info("=" * 100)
