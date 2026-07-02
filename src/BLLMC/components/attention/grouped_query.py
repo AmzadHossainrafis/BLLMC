@@ -77,18 +77,19 @@ class GroupedQueryAttention(nn.Module):
         num_tokens_Q = q.shape[-2]
         num_tokens_K = k_head.shape[-2]
         if use_cache:
-            q_positions = torch.arange(
-                self.ptr_current_pos,
-                self.ptr_current_pos + num_tokens_Q,
-                device=q.device,
-                dtype=torch.long,
-            )
+            q_start = self.ptr_current_pos
+            k_start = self.ptr_current_pos + num_tokens_Q - num_tokens_K
             self.ptr_current_pos += num_tokens_Q
         else:
-            q_positions = torch.arange(num_tokens_Q, device=q.device, dtype=torch.long)
+            q_start, k_start = 0, 0
             self.ptr_current_pos = 0
 
-        k_positions = torch.arange(num_tokens_K, device=k.device, dtype=torch.long)
+        q_positions = torch.arange(
+            q_start, q_start + num_tokens_Q, device=q.device, dtype=torch.long
+        )
+        k_positions = torch.arange(
+            k_start, k_start + num_tokens_K, device=k.device, dtype=torch.long
+        )
 
         q_mask = q_positions[:, None] < k_positions[None, :]
         attention_score = score / (k_head.shape[-1] ** 0.5)
