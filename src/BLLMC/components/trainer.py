@@ -9,8 +9,8 @@ change log :
     8-6-2026 : implement Amp traing loop
     12-6-2026 : implement tokenizer stategy pattern for using both SentencePiece and Tiktoken in generation
     29-6-2026 : implement gradient accumulation
-    2-7-2026 : fix model checkpoint saving naming and eval exception handeling 
-    
+    2-7-2026 : fix model checkpoint saving naming and eval exception handeling
+
 
 #TODO :
     1. add early stopping
