@@ -13,7 +13,7 @@ class Llama3Block(nn.Module):
         self.norm1 = RMSNorm(config.emb_dim)
         self.norm2 = RMSNorm(config.emb_dim)
         self.attn = GroupedQueryAttention(config)
-        self.feed_forward = Llama2FeedForward(config) #same as llama 3
+        self.feed_forward = Llama2FeedForward(config)  # same as llama 3
 
     def forward(self, x: torch.Tensor, use_cache=False):
         h = self.norm1(x)
@@ -23,8 +23,8 @@ class Llama3Block(nn.Module):
         return x
 
     def reset_cache(self):
-        if hasattr(self.attn, "clear_cache"):
-            self.attn.clear_cache()
+        if hasattr(self.attn, "reset_cache"):
+            self.attn.reset_cache()
 
     def __str__(self):
         return (
@@ -33,20 +33,18 @@ class Llama3Block(nn.Module):
         )
 
 
-
-
-
 class Llama2Block(nn.Module):
     """
     Llama2-style decoder model.
-    
+
     Architecture:
         Token Embedding → [Llama2Block x n_layers] → RMSNorm → LM Head
-    
+
     Each Llama2Block contains:
         - Pre-RMSNorm → MultiHeadAttentionWithRoPE → Residual
         - Pre-RMSNorm → FeedForward → Residual
     """
+
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -54,9 +52,9 @@ class Llama2Block(nn.Module):
         self.norm2 = RMSNorm(config.emb_dim)
         self.attn = MultiHeadAttentionWithRoPE(config)
         self.feed_forward = Llama2FeedForward(config)
-        
+
     def forward(self, x, use_cache=False):
-        
+
         h = self.norm1(x)
         x = x + self.attn(h, use_cache=use_cache)
         h = self.norm2(x)
@@ -64,7 +62,5 @@ class Llama2Block(nn.Module):
         return x
 
     def reset_cache(self):
-        if hasattr(self.attn, "clear_cache"):
-            self.attn.clear_cache()
-
-  
+        if hasattr(self.attn, "reset_cache"):
+            self.attn.reset_cache()

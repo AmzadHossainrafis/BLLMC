@@ -31,7 +31,7 @@ runs/
 logs/
 
 # Data
-data/
+/data/
 *.csv
 *.parquet
 *.arrow
@@ -43,3 +43,10 @@ Thumbs.db
 # Misc
 *.log
 .env
+.ruff_cache
+notebook/Llama-2-7b/
+*.model
+dataset/
+notebook/dataset/
+*.txt
+notebook/

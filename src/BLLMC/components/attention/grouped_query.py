@@ -33,7 +33,7 @@ class GroupedQueryAttention(nn.Module):
 
         self.wq = nn.Linear(config.emb_dim, config.emb_dim, bias=False)
         self.wo = nn.Linear(config.emb_dim, config.emb_dim, bias=False)
-        
+
         cos, sin = compute_rope_params(
             head_dim=self.head_dim,
             context_length=config.context_length,
@@ -43,8 +43,8 @@ class GroupedQueryAttention(nn.Module):
 
         self.register_buffer("cos", cos, persistent=False)
         self.register_buffer("sin", sin, persistent=False)
-        self.k_cache = None
-        self.v_cache = None
+        self.register_buffer("k_cache", None, persistent=False)
+        self.register_buffer("v_cache", None, persistent=False)
         self.ptr_current_pos = 0
 
     def forward(self, x: torch.Tensor, use_cache=False):
@@ -77,31 +77,32 @@ class GroupedQueryAttention(nn.Module):
         num_tokens_Q = q.shape[-2]
         num_tokens_K = k_head.shape[-2]
         if use_cache:
-            q_positions = torch.arange(
-                self.ptr_current_pos,
-                self.ptr_current_pos + num_tokens_Q,
-                device=q.device,
-                dtype=torch.long,
-            )
+            q_start = self.ptr_current_pos
+            k_start = self.ptr_current_pos + num_tokens_Q - num_tokens_K
             self.ptr_current_pos += num_tokens_Q
         else:
-            q_positions = torch.arange(num_tokens_Q, device=q.device, dtype=torch.long)
+            q_start, k_start = 0, 0
             self.ptr_current_pos = 0
 
-        k_positions = torch.arange(num_tokens_K, device=k.device, dtype=torch.long)
+        q_positions = torch.arange(
+            q_start, q_start + num_tokens_Q, device=q.device, dtype=torch.long
+        )
+        k_positions = torch.arange(
+            k_start, k_start + num_tokens_K, device=k.device, dtype=torch.long
+        )
 
         q_mask = q_positions[:, None] < k_positions[None, :]
         attention_score = score / (k_head.shape[-1] ** 0.5)
         attention_score = attention_score.masked_fill_(q_mask, -torch.inf)
 
         attention_weights = torch.softmax(attention_score, dim=-1)
-    
+
         context = (attention_weights @ v_head).transpose(1, 2).contiguous()
         context = context.view(b, num_tokens_Q, self.config.emb_dim)
 
         return self.wo(context)
 
-    def clear_cache(self):
+    def reset_cache(self):
         self.k_cache = None
         self.v_cache = None
         self.ptr_current_pos = 0

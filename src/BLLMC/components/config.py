@@ -17,11 +17,15 @@ class ModelConfig:
     drop_rate: float = 0.1
     rope_base: float = 100_000.0
     dtype: object = None
-    sliding_window_size: Optional[int] = None 
+    sliding_window_size: Optional[int] = None
     num_experts: int = 8
     num_experts_per_tok: int = 2
     moe_hidden_dim: int = 768
     ffn_hidden_dim: int = 3072
+    swiglu_limit: float = 7.0
+    rope_scaling_factor: float = 1.0
+    rope_ntk_alpha: float = 1.0
+    rope_ntk_beta: float = 32.0
 
     def __post_init__(self):
         import torch
@@ -41,13 +45,19 @@ class ModelConfig:
 class DataConfig:
     """Data paths and split ratios."""
 
-    dataset_path: str = "/home/rafi/Desktop/BLLMC/dataset/demo_text.txt"
+    dataset_path: str = "dataset/demo_text.txt"
     train_data_path: str = "dataset/english_data.txt"
     val_data_path: str = "dataset/english_val.txt"
     test_data_path: str = "dataset/bangla_test.txt"
     val_split: float = 0.1
     test_split: float = 0.1
     train_split: float = 0.9
+    tokenizer_backend: str = "sentencepiece"
+    tokenizer_model: str = "./dataset/tokenizer_model/tokenizer.model"
+    hf_token: Optional[str] = None
+    repo_id: str = "hf-internal-testing/llama-tokenizer"
+    filename: str = "tokenizer.model"
+    local_path: str = "./dataset/tokenizer_model"
 
 
 @dataclass
@@ -59,20 +69,22 @@ class TrainingConfig:
     weight_decay: float = 0.1
     max_epochs: int = 10
     warmup_steps: int = 100
+    min_lr: float = 1e-5
     checkpoint_dir: str = "artifacts/model_ckpt"
     eval_iters: int = 10
-    eval_interval: int = 50
-    start_context: str = ""
+    eval_interval: int = 120000
+    start_context: str = "এ কথা বললে তো আর সমস্যাটার সমাধান হবে না। আমাকে"
     optimizer: str = "AdamW"
     gradient_clip: float = 1.0
     compile: bool = False
     shuffle: bool = True
-    num_workers: int = 0
+    num_workers: int = 4
     drop_last: bool = True
     max_length: int = 256
     stride: int = 256
     gradient_checkpointing: bool = False
-    gen_indx: int = 5
+    gen_indx: int = 50000
+    gradient_accumulation_steps: int = 16
 
 
 @dataclass
@@ -130,6 +142,68 @@ def llama3_config(**overrides) -> GPT_Config:
         vocab_size=128256,
         sliding_window_size=None,
         drop_rate=0.0,  # LLaMA 3 doesn't use dropout
+        tokenizer_backend="tiktoken",
+        tokenizer_model="cl100k_base",
+        hf_token=None,
+        repo_id="openai-gpt",
+        filename="vocab.json",
+        local_path="./dataset/tokenizer_model",
+    )
+    defaults.update(overrides)
+    return GPT_Config(**defaults)
+
+
+def llama2_config(**overrides) -> GPT_Config:
+    """LLaMA 2 style: RMSNorm, RoPE, GQA, SwiGLU FFN."""
+    defaults = dict(
+        architecture="llama2",
+        n_heads=32,
+        n_kv_heads=8,
+        emb_dim=4096,
+        n_layers=32,
+        context_length=2048,
+        rope_base=500_000.0,
+        ffn_hidden_dim=14336,
+        vocab_size=32000,
+        sliding_window_size=None,
+        drop_rate=0.0,  # LLaMA 2 doesn't use dropout
+        tokenizer_backend="sentencepiece",
+        tokenizer_model="./dataset/tokenizer_model/tokenizer.model",
+        hf_token=None,
+        repo_id="hf-internal-testing/llama-tokenizer",
+        filename="tokenizer.model",
+        local_path="./dataset/tokenizer_model",
+    )
+    defaults.update(overrides)
+    return GPT_Config(**defaults)
+
+
+def gptoss_config(**overrides) -> GPT_Config:
+    """GPT-OSS style: GQA, sliding window, learnable attention sinks, custom SwiGLU MoE."""
+    defaults = dict(
+        architecture="gptoss",
+        vocab_size=201088,
+        emb_dim=2880,
+        n_heads=64,
+        n_kv_heads=8,
+        n_layers=24,
+        context_length=4096,
+        rope_base=150000.0,
+        sliding_window_size=128,
+        num_experts=32,
+        num_experts_per_tok=4,
+        moe_hidden_dim=2880,
+        swiglu_limit=7.0,
+        rope_scaling_factor=32.0,
+        rope_ntk_alpha=1.0,
+        rope_ntk_beta=32.0,
+        drop_rate=0.0,
+        tokenizer_backend="tiktoken",
+        tokenizer_model="o200k_harmony",
+        hf_token=None,
+        repo_id="openai-gpt",
+        filename="vocab.json",
+        local_path="./dataset/tokenizer_model",
     )
     defaults.update(overrides)
     return GPT_Config(**defaults)

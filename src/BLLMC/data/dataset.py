@@ -11,7 +11,7 @@ def download_dataset():
 
     """
 
-    file_id = "1MIr-IMkNswB2JJWPwibuBw57S5ZXNwtz"
+    file_id = "1pp96Ie8HQ-2-nPz8xhyTiTSK6ecPKGeN"
     output_file = "dataset/bangla_dataset.txt"
     if os.path.exists(output_file):
         logger.info("dataset already exist")
@@ -19,6 +19,7 @@ def download_dataset():
     else:
         try:
             logger.info("downloading dataset ")
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
             gdown.download(id=file_id, output=output_file, quiet=False)
             logger.info("dataset download complite ")
 

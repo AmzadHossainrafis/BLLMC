@@ -129,7 +129,6 @@ class MultiHeadAttention(nn.Module):
         else:
             mask = self.mask[:num_torkens_Q, :num_torkens_K]
 
-
         attention_scores = attention_scores / (keys.shape[-1] ** 0.5)
         attention_scores = attention_scores.masked_fill_(mask, -torch.inf)
         attention_weights = torch.softmax(attention_scores, dim=-1)
@@ -139,12 +138,10 @@ class MultiHeadAttention(nn.Module):
 
         return self.out_proj(context)
 
-    def clear_cache(self):
+    def reset_cache(self):
         self.k_cache = None
         self.v_cache = None
         self.ptr_current_pos = 0
-
-
 
 
 class MultiHeadAttentionWithRoPE(nn.Module):
@@ -189,10 +186,7 @@ class MultiHeadAttentionWithRoPE(nn.Module):
         self.out_proj = nn.Linear(self.d_out, self.d_out, bias=False)
         self.dropout = nn.Dropout(config.drop_rate)
 
-    
-
-
-        # precompute sin and cos for RoPE 
+        # precompute sin and cos for RoPE
         cos, sin = compute_rope_params(
             head_dim=self.head_dim,
             context_length=config.context_length,
@@ -232,12 +226,10 @@ class MultiHeadAttentionWithRoPE(nn.Module):
         q = self.wq(x)
         v = self.wv(x)
 
-     
         q = q.view(Batch, num_tokens, self.n_head, self.head_dim).transpose(1, 2)
         k = k.view(Batch, num_tokens, self.n_head, self.head_dim).transpose(1, 2)
         v = v.view(Batch, num_tokens, self.n_head, self.head_dim).transpose(1, 2)
 
-       
         q = apply_rope(q, self.cos_emb, self.sin_emb, offset=self.ptr_current_pos)
         k = apply_rope(k, self.cos_emb, self.sin_emb, offset=self.ptr_current_pos)
 
@@ -266,7 +258,6 @@ class MultiHeadAttentionWithRoPE(nn.Module):
         else:
             mask = self.mask[:num_torkens_Q, :num_torkens_K]
 
-        
         attention_scores = attention_scores / (keys.shape[-1] ** 0.5)
         attention_scores = attention_scores.masked_fill_(mask, -torch.inf)
         attention_weights = torch.softmax(attention_scores, dim=-1)
@@ -276,7 +267,7 @@ class MultiHeadAttentionWithRoPE(nn.Module):
 
         return self.out_proj(context)
 
-    def clear_cache(self):
+    def reset_cache(self):
         self.k_cache = None
         self.v_cache = None
         self.ptr_current_pos = 0

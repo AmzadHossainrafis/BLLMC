@@ -6,121 +6,29 @@ email : amzad.rafi@northsouth.edu
 change log :
     17-5-2026 : start
     23-5-2026 : implement trainer design pattern
-    8-6-2026 : implement Amp traing loop 
-    
+    8-6-2026 : implement Amp traing loop
+    12-6-2026 : implement tokenizer stategy pattern for using both SentencePiece and Tiktoken in generation
+    29-6-2026 : implement gradient accumulation
+    2-7-2026 : fix model checkpoint saving naming and eval exception handeling
 
 
 #TODO :
-    1. implement checkpoint saving
-    2. add learning rate scheduler
-    3. add early stopping
-    4. add mixed precision training
-    5. distributed multi-gpu training
-
-
+    1. add early stopping
+    2. add distributed multi-gpu training
 
 
 """
 
-import os
+import sys
 import torch
 import torch.nn as nn
-import tiktoken
 from torch.utils.data import DataLoader
 from BLLMC.components.config import GPT_Config
-from abc import ABC, abstractmethod
-
-
-class Trainer(ABC):
-    """
-    Encapsulates the training loop, evaluation, and checkpointing for the language model.
-    Follows the Trainer Design Pattern.
-    """
-
-    def __init__(
-        self,
-        model: nn.Module,
-        train_loader: DataLoader,
-        val_loader: DataLoader,
-        config: GPT_Config,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
-    ):
-        self.model = model.to(device)
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.config = config
-        self.device = device
-        self.optimizer = self._setup_optimizer()
-        self.criterion = nn.CrossEntropyLoss()
-
-        # Setup Automatic Mixed Precision (AMP)
-        self._setup_amp()
-
-        if hasattr(self.config, "compile") and self.config.compile:
-            print("Compiling model...")
-            self.model = torch.compile(self.model)
-
-    def _setup_amp(self):
-        """Configure AMP settings once during initialization."""
-        if "cuda" in self.device:
-            self.device_type = "cuda"
-            if torch.cuda.is_bf16_supported():
-                self.amp_dtype = torch.bfloat16
-                self.scaler = None  # bfloat16 does not need loss scaling
-            else:
-                self.amp_dtype = torch.float16
-                self.scaler = torch.amp.GradScaler("cuda")
-            self.use_amp = True
-        else:
-            # CPU: AMP autocast only supports bfloat16, and benefits are minimal
-            self.device_type = "cpu"
-            self.amp_dtype = torch.bfloat16
-            self.scaler = None
-            self.use_amp = False
-
-    def _setup_optimizer(self):
-        if self.config.optimizer == "AdamW":
-            return torch.optim.AdamW(
-                self.model.parameters(),
-                lr=self.config.learning_rate,
-                weight_decay=self.config.weight_decay,
-            )
-        else:
-            raise NotImplementedError(
-                f"Optimizer {self.config.optimizer} not supported."
-            )
-
-    def _save_checkpoint(self, epoch: int, loss: float):
-        os.makedirs(self.config.checkpoint_dir, exist_ok=True)
-        checkpoint_path = os.path.join(
-            self.config.checkpoint_dir, f"ckpt_epoch_{epoch}.pt"
-        )
-        torch.save(
-            {
-                "epoch": epoch,
-                "model_state_dict": self.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "loss": loss,
-            },
-            checkpoint_path,
-        )
-        print(f"Saved checkpoint to {checkpoint_path}")
-
-    @torch.no_grad()
-    def generate(self, prompt: str):
-        pass
-
-    @abstractmethod
-    def train_step(self, inputs: torch.Tensor, targets: torch.Tensor):
-        pass
-
-    @abstractmethod
-    def evaluate(self, inputs: torch.Tensor, targets: torch.Tensor):
-        self.model.eval()
-
-    @abstractmethod
-    def train(self):
-        pass
+from BLLMC.components.base import Trainer
+from tqdm import tqdm
+from BLLMC.data.tokenizer import get_tokenizer
+from BLLMC.utils.logger import logger
+from BLLMC.utils.exception import CustomException
 
 
 class LLMTrainer(Trainer):
@@ -133,11 +41,10 @@ class LLMTrainer(Trainer):
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         super().__init__(model, train_loader, val_loader, config, device)
+        self.tokenizer = get_tokenizer(config)
 
     def train_step(self, inputs: torch.Tensor, targets: torch.Tensor):
-        self.optimizer.zero_grad()
-
-        # Forward pass with AMP autocast
+        """Forward + backward only. Does NOT step the optimizer (accumulation-friendly)."""
         with torch.amp.autocast(
             device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
         ):
@@ -145,10 +52,20 @@ class LLMTrainer(Trainer):
             loss = self.criterion(
                 model_output.view(-1, model_output.size(-1)), targets.view(-1)
             )
+            # Scale loss so the accumulated mean across micro-batches is correct
+            scaled_loss = loss / self.config.gradient_accumulation_steps
 
-        # Backward pass with optional loss scaling (float16 only)
         if self.scaler is not None:
-            self.scaler.scale(loss).backward()
+            self.scaler.scale(scaled_loss).backward()
+        else:
+            scaled_loss.backward()
+
+        # Return the UNSCALED loss for logging
+        return loss.item()
+
+    def _clip_and_step(self):
+        """Clip gradients, step the optimizer, and zero gradients."""
+        if self.scaler is not None:
             self.scaler.unscale_(self.optimizer)
             if self.config.gradient_clip > 0:
                 torch.nn.utils.clip_grad_norm_(
@@ -157,118 +74,117 @@ class LLMTrainer(Trainer):
             self.scaler.step(self.optimizer)
             self.scaler.update()
         else:
-            loss.backward()
             if self.config.gradient_clip > 0:
                 torch.nn.utils.clip_grad_norm_(
                     self.model.parameters(), self.config.gradient_clip
                 )
             self.optimizer.step()
-
-        return loss.item()
+        self.scheduler.step()
+        self.optimizer.zero_grad(set_to_none=True)
 
     @torch.no_grad()
     def evaluate(self, val_loader: DataLoader):
+        logger.info("Evaluating model...")
         self.model.eval()
         val_losses = []
 
-        for inputs, targets in val_loader:
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            with torch.amp.autocast(
-                device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
-            ):
-                outputs = self.model(inputs)
-                loss = self.criterion(
-                    outputs.view(-1, outputs.size(-1)), targets.view(-1)
-                )
-            val_losses.append(loss.item())
-
-        self.model.train()
-        return torch.mean(torch.tensor(val_losses)).item()
+        try:
+            with tqdm(
+                val_loader,
+                desc="Evaluating",
+                leave=False,
+            ) as val_bar:
+                for inputs, targets in val_bar:
+                    inputs, targets = inputs.to(self.device), targets.to(self.device)
+                    with torch.amp.autocast(
+                        device_type=self.device_type,
+                        dtype=self.amp_dtype,
+                        enabled=self.use_amp,
+                    ):
+                        outputs = self.model(inputs)
+                        loss = self.criterion(
+                            outputs.view(-1, outputs.size(-1)), targets.view(-1)
+                        )
+                    val_losses.append(loss.item())
+                    val_bar.set_postfix({"val_loss": f"{loss.item():.4f}"})
+        except Exception as e:
+            raise CustomException(e, sys)
+        finally:
+            self.model.train()
+        logger.info("Evaluation complete.")
+        return sum(val_losses) / len(val_losses) if val_losses else 0.0
 
     def train(self):
-        from tqdm import tqdm
+        logger.info("=" * 100)
+        logger.info("Starting training...")
+        logger.info(f"experiment config : {self.config}")
+        accum_steps = self.config.gradient_accumulation_steps
+        logger.info(
+            f"Gradient accumulation: {accum_steps} micro-batches | "
+            f"Effective batch size: {self.config.batch_size * accum_steps} sequences"
+        )
+        logger.info("=" * 100)
 
-        for epoch in range(self.config.max_epochs):
-            # Training loop with progress bar
-            loss = 0.0  # default in case train_loader is empty
-            pbar = tqdm(
-                enumerate(self.train_loader),
-                total=len(self.train_loader),
-                desc=f"Epoch {epoch+1}/{self.config.max_epochs}",
-            )
+        try:
+            self.optimizer.zero_grad(set_to_none=True)
 
-            for batch_idx, (inputs, targets) in pbar:
-                inputs, targets = inputs.to(self.device), targets.to(self.device)
-                loss = self.train_step(inputs, targets)
+            for epoch in range(self.config.max_epochs):
+                # Training loop with progress bar
+                loss = 0.0  # default in case train_loader is empty
+                pbar = tqdm(
+                    enumerate(self.train_loader),
+                    total=len(self.train_loader),
+                    desc=f"Epoch {epoch + 1}/{self.config.max_epochs}",
+                )
 
-                # Update progress bar with current loss
-                pbar.set_postfix({"loss": f"{loss:.4f}"})
+                for batch_idx, (inputs, targets) in pbar:
+                    inputs, targets = inputs.to(self.device), targets.to(self.device)
+                    loss = self.train_step(inputs, targets)
 
-                if batch_idx > 0 and batch_idx % self.config.eval_interval == 0:
-                    val_loss = self.evaluate(self.val_loader)
-                    pbar.set_postfix(
-                        {"loss": f"{loss:.4f}", "val_loss": f"{val_loss:.4f}"}
-                    )
-                    print(
-                        f"\n--- Epoch {epoch+1} | Step {batch_idx} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} ---"
-                    )
+                    # Update progress bar with current loss and LR
+                    current_lr = self.optimizer.param_groups[0]["lr"]
+                    pbar.set_postfix({"loss": f"{loss:.4f}", "lr": f"{current_lr:.2e}"})
 
-                if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
-                    prompt = (
-                        self.config.start_context
-                        if self.config.start_context
-                        else "Garments are"
-                    )
-                    tokenizer = tiktoken.get_encoding("gpt2")
-                    start_tokens = tokenizer.encode(
-                        prompt, allowed_special={"<|endoftext|>"}
-                    )
-                    x = torch.tensor(
-                        start_tokens, dtype=torch.long, device=self.device
-                    )[None, :]
-                    # generate output and decode it
-                    result = self.generate(
-                        x, max_new_tokens=50, context_size=self.config.context_length
-                    )
-                    print(tokenizer.decode(result[0].tolist()))
+                    # Step optimizer every accum_steps micro-batches
+                    if (batch_idx + 1) % accum_steps == 0:
+                        self._clip_and_step()
 
-            self._save_checkpoint(epoch, loss)
+                    if batch_idx > 0 and batch_idx % self.config.eval_interval == 0:
+                        val_loss = self.evaluate(self.val_loader)
+                        pbar.set_postfix(
+                            {"loss": f"{loss:.4f}", "val_loss": f"{val_loss:.4f}"}
+                        )
+                        print(
+                            f"\n--- Epoch {epoch + 1} | Step {batch_idx} | "
+                            f"Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f} | "
+                            f"LR: {current_lr:.2e} ---"
+                        )
+                        logger.info(f"Val loss: {val_loss:.4f}")
+                    if batch_idx % self.config.gen_indx == 0 and batch_idx > 0:
+                        prompt = (
+                            self.config.start_context
+                            if self.config.start_context
+                            else "Garments are"
+                        )
+                        start_tokens = self.tokenizer.encode(
+                            prompt, allowed_special={"<|endoftext|>"}
+                        )
+                        x = torch.tensor(
+                            start_tokens, dtype=torch.long, device=self.device
+                        )[None, :]
+                        # generate output and decode it
+                        result = self.generate(
+                            x,
+                            max_new_tokens=50,
+                            context_size=self.config.context_length,
+                        )
+                        print(self.tokenizer.decode(result[0].tolist()))
 
-    def generate(self, idx, max_new_tokens, context_size, eos_id=None):
-        self.model.eval()
-        for _ in range(max_new_tokens):
-            idx_cond = idx[:, -context_size:]
-            with torch.no_grad(), torch.amp.autocast(
-                device_type=self.device_type, dtype=self.amp_dtype, enabled=self.use_amp
-            ):
-                logits = self.model(idx_cond)
-            logits = logits[:, -1, :]
-            idx_next = torch.argmax(logits, dim=-1, keepdim=True)
-            if eos_id is not None and idx_next == eos_id:
-                break
-            idx = torch.cat((idx, idx_next), dim=1)
-        self.model.train()
-        return idx
+                # Handle leftover micro-batches at epoch end
+                if (batch_idx + 1) % accum_steps != 0:
+                    self._clip_and_step()
 
-    def generate_from_cache():
-        pass
-# if __name__ == "__main__":
-#     from BLLMC.components.config import GPT_Config
-#     from BLLMC.components.models import GPT2Model
-#     from BLLMC.data.loader import create_dataloader
-#     from BLLMC.components.trainer import LLMTrainer
-#     import tiktoken
-
-#     config = GPT_Config(compile=False)
-#     model = GPT2Model(config)
-
-#     with open(config.train_data_path, "r", encoding="utf-8") as f:
-
-#     with open(config.val_data_path, "r", encoding="utf-8") as f:
-#         val_data = f.read()
-
-#     train_loader = create_dataloader(train_data, "gpt2", config)
-#     val_loader = create_dataloader(val_data, "gpt2", config)
-
-#     trainer = LLMTrainer(model, train_loader, val_loader, config)
-#     trainer.train()
+                self._save_checkpoint(epoch, loss)
+        except Exception as e:
+            logger.error(f"Error in training: {e}")
+            raise CustomException(e, sys)

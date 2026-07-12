@@ -19,8 +19,8 @@ to do :
 """
 
 from torch.utils.data import Dataset, DataLoader
-import tiktoken
 import torch
+from BLLMC.data.tokenizer import get_tokenizer, SentencePieceStrategy, TiktokenStrategy
 
 
 class BanglaDataset(Dataset):
@@ -80,7 +80,6 @@ class BanglaDatasetClassification(Dataset):
 
 
 class BanglaDatasetInstruction(Dataset):
-
     def __init__(self, config) -> None:
         super().__init__()
 
@@ -92,7 +91,20 @@ class BanglaDatasetInstruction(Dataset):
 
 
 def create_dataloader(data, encoder, config):
-    tokenizer = tiktoken.get_encoding(encoder)
+
+    if isinstance(encoder, str):
+        if encoder.endswith(".model") or "/" in encoder:
+            tokenizer = SentencePieceStrategy(encoder)
+        else:
+            try:
+                tokenizer = TiktokenStrategy(encoder)
+            except Exception:
+                tokenizer = get_tokenizer(config)
+    elif encoder is not None:
+        tokenizer = encoder
+    else:
+        tokenizer = get_tokenizer(config)
+
     dataset = BanglaDataset(data, tokenizer, config)
     return DataLoader(
         dataset,

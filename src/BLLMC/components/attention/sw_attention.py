@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from BLLMC.components.layers.embeddings import apply_rope
 from BLLMC.components.layers.embeddings import compute_rope_params
 
+
 class SlidingWindowAttention(nn.Module):
     """
     Multi-Head Attention with optional Sliding Window and KV Cache.
@@ -48,7 +49,6 @@ class SlidingWindowAttention(nn.Module):
         self.out_proj = nn.Linear(config.emb_dim, config.emb_dim, bias=False)
 
         # Rotary Position Embeddings (RoPE)
-        
 
         cos, sin = compute_rope_params(
             head_dim=self.head_dim,
@@ -135,7 +135,6 @@ class SlidingWindowAttention(nn.Module):
         k = k.transpose(1, 2)
 
         # Apply RoPE to Query and Key
-        
 
         q = apply_rope(q, self.cos, self.sin, offset=self.ptr_current_pos)
         k = apply_rope(k, self.cos, self.sin, offset=self.ptr_current_pos)

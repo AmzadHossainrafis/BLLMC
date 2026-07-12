@@ -54,3 +54,16 @@ class GELU_taylor(nn.Module):
 
 def GELU():
     return nn.GELU(approximate="tanh")
+
+
+def swiglu(x, alpha: float = 1.702, limit: float = 7.0):
+    """
+    SwiGLU activation function with clamping, scaling (alpha), and +1 bias.
+
+    Used in GPT-OSS FeedForward networks.
+    """
+    x_glu, x_linear = x[..., ::2], x[..., 1::2]
+    x_glu = x_glu.clamp(min=None, max=limit)
+    x_linear = x_linear.clamp(min=-limit, max=limit)
+    out_glu = x_glu * torch.sigmoid(alpha * x_glu)
+    return out_glu * (x_linear + 1.0)
