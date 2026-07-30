@@ -94,19 +94,22 @@ class LLMTrainer(Trainer):
                 desc="Evaluating",
                 leave=False,
             ) as val_bar:
-                for inputs, targets in val_bar:
-                    inputs, targets = inputs.to(self.device), targets.to(self.device)
-                    with torch.amp.autocast(
-                        device_type=self.device_type,
-                        dtype=self.amp_dtype,
-                        enabled=self.use_amp,
-                    ):
-                        outputs = self.model(inputs)
-                        loss = self.criterion(
-                            outputs.view(-1, outputs.size(-1)), targets.view(-1)
-                        )
-                    val_losses.append(loss.item())
-                    val_bar.set_postfix({"val_loss": f"{loss.item():.4f}"})
+                for i, (inputs, targets) in enumerate(val_bar):
+                    if self.config.eval_iters is not None and i >= self.config.eval_iters:  
+                        break
+                    else:
+                        inputs, targets = inputs.to(self.device), targets.to(self.device)
+                        with torch.amp.autocast(
+                            device_type=self.device_type,
+                            dtype=self.amp_dtype,
+                            enabled=self.use_amp,
+                        ):
+                            outputs = self.model(inputs)
+                            loss = self.criterion(
+                                outputs.view(-1, outputs.size(-1)), targets.view(-1)
+                            )
+                        val_losses.append(loss.item())
+                        val_bar.set_postfix({"val_loss": f"{loss.item():.4f}"})
         except Exception as e:
             raise CustomException(e, sys)
         finally:

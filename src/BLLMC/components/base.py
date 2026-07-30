@@ -148,22 +148,65 @@ class Trainer(ABC):
     def _save_checkpoint(self, epoch: int, loss: float):
         try:
             os.makedirs(self.config.checkpoint_dir, exist_ok=True)
+            
+            # Clean up old checkpoints from previous epochs to free disk space
+            if epoch > 0:
+                prev_checkpoint_path = os.path.join(
+                    self.config.checkpoint_dir, f"ckpt_epoch_{epoch - 1}.pt"
+                )
+                prev_weights_path = os.path.join(
+                    self.config.checkpoint_dir, f"model_weights_epoch_{epoch - 1}.pt"
+                )
+                for old_path in [prev_checkpoint_path, prev_weights_path]:
+                    if os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                            logger.info(f"Removed previous epoch checkpoint {old_path} to free disk space.")
+                        except Exception as rm_err:
+                            logger.warning(f"Could not remove old checkpoint {old_path}: {rm_err}")
+
             checkpoint_path = os.path.join(
                 self.config.checkpoint_dir, f"ckpt_epoch_{epoch}.pt"
             )
-            torch.save(
-                {
+            
+            save_optimizer = getattr(self.config, "save_optimizer", True)
+            if save_optimizer:
+                checkpoint_dict = {
                     "epoch": epoch,
                     "model_state_dict": self.model.state_dict(),
                     "optimizer_state_dict": self.optimizer.state_dict(),
                     "loss": loss,
-                },
-                checkpoint_path,
-            )
+                }
+            else:
+                checkpoint_dict = {
+                    "epoch": epoch,
+                    "model_state_dict": self.model.state_dict(),
+                    "loss": loss,
+                }
+
+            torch.save(checkpoint_dict, checkpoint_path)
             logger.info(f"Saved checkpoint to {checkpoint_path}")
         except Exception as e:
-            logger.error(f"Error in saving checkpoint: {e}")
-            raise CustomException(e, sys)
+            logger.warning(
+                f"Failed to save full checkpoint: {e}. "
+                "Attempting fallback to save model weights only (without optimizer state)..."
+            )
+            try:
+                fallback_path = os.path.join(
+                    self.config.checkpoint_dir, f"model_weights_epoch_{epoch}.pt"
+                )
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": self.model.state_dict(),
+                        "loss": loss,
+                    },
+                    fallback_path,
+                )
+                logger.info(f"Successfully saved model weights to {fallback_path} (fallback).")
+            except Exception as fallback_err:
+                logger.error(f"Fallback save failed as well: {fallback_err}")
+                raise CustomException(e, sys)
 
     def _load_checkpoint(self, checkpoint_path: str):
         """
@@ -187,7 +230,10 @@ class Trainer(ABC):
                 weights_only=True,
             )
             self.model.load_state_dict(checkpoint["model_state_dict"])
-            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            if "optimizer_state_dict" in checkpoint:
+                self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            else:
+                logger.warning("No optimizer_state_dict found in checkpoint. Skipping optimizer state restoration.")
             logger.info(
                 f"Resumed from epoch {checkpoint['epoch']} "
                 f"(loss: {checkpoint['loss']:.4f})"

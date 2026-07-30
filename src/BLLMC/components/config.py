@@ -85,6 +85,7 @@ class TrainingConfig:
     gradient_checkpointing: bool = False
     gen_indx: int = 50000
     gradient_accumulation_steps: int = 16
+    save_optimizer: bool = True
 
 
 @dataclass

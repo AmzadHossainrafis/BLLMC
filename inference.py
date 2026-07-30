@@ -28,13 +28,17 @@ def run_inference(
     config = gptoss_config(
         compile=False,
         batch_size=1,
-        num_workers=0,
-        n_layers=12,
-        num_experts=4,
+        num_workers=2,
+        max_epochs=5,
+        n_layers=14,
+        num_experts=10,
+        num_experts_per_tok=2,
         emb_dim=512,
-        n_heads=8,
-        n_kv_heads=2,
+        n_heads=16,
+        n_kv_heads=4,
         moe_hidden_dim=512,
+        max_length=512,
+        stride=512,
     )
 
     # 2. Initialize the tokenizer
@@ -116,26 +120,26 @@ def main():
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default="./BLLMC/artifacts/model_ckpt/ckpt_epoch_4.pt",
+        default="/home/rafi/Desktop/BLLMC/artifacts/model_ckpt/oss_ckpt_epoch_1.pt",
         help="Path to the checkpoint file",
     )
     parser.add_argument(
         "--prompt",
         type=str,
-        default="বাধা দিয়ে ডাক্তারবাবু বলেন,",
+        default="বাংলা ভাষা আন্দোলন ",
         help="Prompt to begin generation with",
     )
     parser.add_argument(
         "--max_new_tokens",
         type=int,
-        default=100,
+        default=400,
         help="Maximum number of new tokens to generate",
     )
     parser.add_argument(
         "--strategy",
         type=str,
         choices=["greedy", "temperature", "top_k"],
-        default="top_k",
+        default="greedy",
         help="Generation strategy to use",
     )
     parser.add_argument(

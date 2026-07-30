@@ -11,7 +11,7 @@ def download_dataset():
 
     """
 
-    file_id = "1pp96Ie8HQ-2-nPz8xhyTiTSK6ecPKGeN"
+    file_id = "15zaO4sVBixE2Ww7Cbz3tyX_4o3zKDD33"
     output_file = "dataset/bangla_dataset.txt"
     if os.path.exists(output_file):
         logger.info("dataset already exist")
@@ -25,3 +25,8 @@ def download_dataset():
 
         except Exception as e:
             raise CustomException(e, sys)
+
+
+
+if __name__ == "__main__":
+    download_dataset()
